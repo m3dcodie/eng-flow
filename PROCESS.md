@@ -45,6 +45,8 @@ Two phases, one gate between them.
    4. Epics / Stories / Tasks
                  v
    5. Implementation (per task, on demand)
+                 v
+   6. Code Review (diff, before it ships)
 ```
 
 MVP mode and production mode are not a maturity ranking — they're a match to context. A one-off internal tool never needs to graduate. A stakeholder-greenlit product might skip straight past MVP-mode ceremony into the production track, still carving an MVP-cut inside it. Route on what the work actually needs, not on ambition.
@@ -160,6 +162,16 @@ Terminal stage, on-demand per task. Skill: `.claude/skills/eng-flow-implement/SK
 - Scope discipline: touch only what the task requires, log anything else noticed rather than fixing it inline
 - Hard stop before high-risk/irreversible changes (auth, destructive migrations, payments, deletions, deploys, secrets) — explicit sign-off required
 - Whole-story "auto" mode (implement every remaining task in one approved pass) is not built yet — deferred
+
+### Stage 6 — Code Review
+
+Post-implementation counterpart to Stage 3.5 — reviews the actual diff Stage 5 produced, not a design doc. Skill: `.claude/skills/eng-flow-code-review/SKILL.md`.
+
+- Five-axis review: correctness, readability, architecture, security, performance
+- Severity-tagged findings — Critical/Required block merge and get an individual sign-off gate; Nit/Optional/FYI are listed, not gated
+- Tests reviewed first, dead code flagged before removal, verdict (Approve / Request changes) saved alongside the story
+
+Not built yet: QA (behavioral testing of a running app — browser-based, front-end only in scope, distinct from this diff-reading stage).
 
 ---
 

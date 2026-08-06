@@ -27,6 +27,19 @@ From **gstack**:
 
 From **agent-skills**:
 - **`incremental-implementation`** and **`test-driven-development`** — the per-task loop (read acceptance criteria → load context → simplest-thing-that-works → RED/GREEN test → full regression + build → commit → mark complete), scope discipline ("noticed but not touching" instead of drive-by fixes), and hard stop conditions for high-risk/irreversible work — reused near-verbatim for eng-flow's Stage 5 (`eng-flow-implement`). The `/build` vs `/build auto` mode split, and the clean-baseline preflight that protects auto mode, were noted but not built yet — see Stage 5 section below.
+- **`code-review-and-quality`** — the five-axis review (correctness, readability, architecture, security, performance), severity-label gating (Critical/Required block merge and get individual `AskUserQuestion` gates; Nit/Optional/FYI are listed, not gated), "review tests first," structural-remedy-not-just-complaint, and dead-code-ask-before-deleting — reused for eng-flow's Stage 6 (`eng-flow-code-review`), near-verbatim; this skill was already noticeably more complete than gstack's equivalent checklist (see Stage 6 section below).
+
+## Stage 6 — Code Review: validated the same way as Stages 1-5
+
+- **gstack**'s `review` (pre-landing PR review) has a code-quality/test/performance checklist, but thin (4 bullets each) — most of its bulk is gstack-infra machinery (specialist subagent dispatch, cross-model synthesis, Greptile comment resolution, gbrain persistence) that has no eng-flow equivalent and shouldn't.
+- **agent-skills**' `code-review-and-quality` is comprehensive and directly reusable — see above.
+- **External validation** (web search, 2026-08-07): independent code-review-checklist sources converge on the same five/six review dimensions and the same severity-labeling practice, confirming this isn't just one repo's house style.
+
+**Decision:** add Stage 6 (`eng-flow-code-review`), the post-implementation counterpart to Stage 3.5 — Stage 3.5 reviews the design before code exists, Stage 6 reviews the code once Stage 5 has produced it. Scoped to a branch diff or a story's commits, output saved alongside the story next to its `tasks.md`.
+
+## Noted for later: QA stage
+
+The user flagged QA (behavioral testing of a running app) as a likely future stage, browser-based and front-end-only in scope — distinct from code review, which reads the diff rather than exercises the running app. Not built yet; gstack's `qa`/`qa-only` are the reference point when it is.
 
 ## Stage 5 — Implementation: validated the same way as Stages 1-4
 

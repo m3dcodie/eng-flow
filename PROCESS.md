@@ -47,6 +47,8 @@ Two phases, one gate between them.
    5. Implementation (per task, on demand)
                  v
    6. Code Review (diff, before it ships)
+                 v
+   7. QA (browser-based, front-end only)
 ```
 
 MVP mode and production mode are not a maturity ranking — they're a match to context. A one-off internal tool never needs to graduate. A stakeholder-greenlit product might skip straight past MVP-mode ceremony into the production track, still carving an MVP-cut inside it. Route on what the work actually needs, not on ambition.
@@ -171,7 +173,14 @@ Post-implementation counterpart to Stage 3.5 — reviews the actual diff Stage 5
 - Severity-tagged findings — Critical/Required block merge and get an individual sign-off gate; Nit/Optional/FYI are listed, not gated
 - Tests reviewed first, dead code flagged before removal, verdict (Approve / Request changes) saved alongside the story
 
-Not built yet: QA (behavioral testing of a running app — browser-based, front-end only in scope, distinct from this diff-reading stage).
+### Stage 7 — QA
+
+Browser-based, front-end only — skip for backend/CLI/library work with no UI. Skill: `.claude/skills/eng-flow-qa/SKILL.md`.
+
+- Exercises the *running* app, not the diff — catches what code review can't
+- Detects Playwright (MCP or project-local) if available; falls back to a guided manual checklist otherwise, never skips QA for lack of tooling
+- Modes: diff-aware (default, scoped to the current story), full, quick
+- Documents bugs with evidence and severity, does not fix them — fixes route through Stage 5 (`eng-flow-implement`)
 
 ---
 

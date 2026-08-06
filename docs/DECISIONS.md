@@ -37,9 +37,13 @@ From **agent-skills**:
 
 **Decision:** add Stage 6 (`eng-flow-code-review`), the post-implementation counterpart to Stage 3.5 — Stage 3.5 reviews the design before code exists, Stage 6 reviews the code once Stage 5 has produced it. Scoped to a branch diff or a story's commits, output saved alongside the story next to its `tasks.md`.
 
-## Noted for later: QA stage
+## Stage 7 — QA: validated the same way as Stages 1-6
 
-The user flagged QA (behavioral testing of a running app) as a likely future stage, browser-based and front-end-only in scope — distinct from code review, which reads the diff rather than exercises the running app. Not built yet; gstack's `qa`/`qa-only` are the reference point when it is.
+- **gstack**'s `qa` is capable but built entirely on gstack's own proprietary browser daemon (`$B`/`browse`) — confirmed to be a wrapper around Playwright, not a bespoke automation layer. eng-flow can't depend on gstack's wrapper at runtime, so the reusable part is the *methodology*, not the commands: mode structure (diff-aware default / full / quick), phased workflow (orient → explore → document), the per-page checklist (visual scan, interactive elements, forms, navigation, states, console errors, responsiveness), and evidence-immediately-not-batched documentation discipline.
+- **agent-skills** has nothing here — it's a coding-agent toolkit, not concerned with browser-based behavioral QA.
+- This environment itself has no browser-automation tool registered (checked directly via tool search) — confirming the skill must degrade gracefully (Playwright if available, MCP or project-local; guided-manual checklist if not) rather than assume one exists, unlike gstack which assumes its own daemon is always present.
+
+**Decision:** add Stage 7 (`eng-flow-qa`), browser-based and front-end-only per explicit scoping — skip entirely for backend/CLI/library work. One structural change from gstack: split finding bugs from fixing them. gstack's `qa` does both in one skill; eng-flow's QA only documents (with evidence, severity-tagged using the same vocabulary as Stage 6), then hands fixes off to the already-built `eng-flow-implement` — keeps every stage's responsibility non-overlapping, consistent with the rest of the track.
 
 ## Stage 5 — Implementation: validated the same way as Stages 1-4
 

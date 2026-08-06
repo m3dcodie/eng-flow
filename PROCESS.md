@@ -135,6 +135,15 @@ Only here do tech stack, deployment, and API/microservice shape get decided. Tem
 - Deployment strategy — local/containers now, cloud-ready notes for later; match the user's actual current practice (local dev, containers, GitHub) rather than assuming cloud deploy is imminent
 - ADRs for significant decisions (`templates/production/04-adr.md`) — one per decision, as they come up, not retrofitted
 
+### Stage 3.5 — Engineering Review
+
+Reviews `architecture.md` before any backlog work is built on top of it — catches design problems while they're still cheap to fix, not a code review (no code exists yet at this point). Skill: `.claude/skills/eng-flow-eng-review/SKILL.md`.
+
+- Architecture-review checklist: component boundaries/coupling, data flow bottlenecks, scaling/SPOF, security architecture, per-integration-point failure scenarios, distribution path
+- Cognitive-pattern lenses (adapted from gstack's `plan-eng-review`, see `docs/DECISIONS.md`): boring by default, blast radius, Conway's Law, essential vs. accidental complexity, two-week smell test, incremental over revolutionary, reversibility preference
+- Interactive, one issue at a time — each finding grounded in the specific section of `architecture.md` it reacts to, explicit accept/change/reject from the user before moving on
+- Findings and resolutions logged to `eng-review.md` in the same spec folder; accepted/changed findings also update `architecture.md` directly
+
 ### Stage 4 — Epics / Stories / Tasks
 
 Breaks Stage 2/3 into executable work. Template: `templates/production/03-epics-stories-tasks.md`. Epics should map to the domains/functional areas named back in Stage 1.

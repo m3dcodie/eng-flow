@@ -23,6 +23,15 @@ From **truth-engine** (`~/projects/truth-engine/.claude/skills/`), a project the
 From **gstack**:
 - **`office-hours`**'s six forcing questions (demand reality, status quo, desperate specificity, narrowest wedge, observation, future-fit) — trimmed into eng-flow's idea-validation step, used *only* on the "not yet decided" routing path (see below for why not always).
 - **`gstack-slug`**'s sanitization approach (strip to `[a-zA-Z0-9._-]`, lowercase) — reused for eng-flow's per-spec slug, adapted from gstack's repo-level slug (keyed to git remote, for a global cross-project store) to a per-spec-topic slug (since eng-flow saves inside each project's own repo, not a global store).
+- **`plan-eng-review`**'s "Cognitive Patterns — How Great Eng Managers Think" (7 of its 15, the ones that apply before any code exists: boring by default, blast radius, Conway's Law, essential vs. accidental complexity, two-week smell test, incremental over revolutionary, reversibility preference) and its architecture-review checklist (component boundaries/coupling, data flow bottlenecks, scaling/SPOF, security architecture, per-integration-point failure scenarios, distribution path) — reused for eng-flow's Stage 3.5. Also reused its one-issue-per-`AskUserQuestion`, stop-and-wait discipline, and its line-grounding requirement (a finding must cite the specific text that motivated it), simplified from gstack's numeric confidence-score/false-positive-suppression apparatus since that machinery is built for noisy code-diff review, not a single architecture doc.
+
+## Stage 3.5 — Engineering Review: validated the same way as Stages 1-4
+
+- **gstack** has a direct, well-developed equivalent (`plan-eng-review`): a design-review gate that runs *before* implementation, reviewing a design doc or plan against 15 named engineering-leadership heuristics plus a 4-section checklist (Architecture, Code Quality, Tests, Performance). Its own framing is explicit — this runs "before you start coding — to catch architecture issues before implementation."
+- **agent-skills** has no equivalent — only `code-review-and-quality`, which reviews committed code. A grep across every agent-skills `SKILL.md` for "design review," "design doc review," or "architecture review" returned zero hits.
+- **External validation** (web search, 2026-08-07): formal review gates before implementation (PDR/CDR-style in systems engineering; architecture review boards per AWS/Mozilla/Microsoft playbooks) are established practice specifically because architectural decisions are far less costly to fix at the design stage than after implementation has started.
+
+**Decision:** add Stage 3.5, positioned after Architecture and before Epics/Stories/Tasks — reviewing `architecture.md` before effort is spent breaking a potentially-flawed design into a backlog. Only the *architecture-relevant* subset of `plan-eng-review` applies, since no code exists yet at this point in the track — its Code Quality/Test/Performance sections, brain-context integration, and telemetry are gstack-infra-specific and don't carry over.
 
 ## Where eng-flow deliberately diverges
 

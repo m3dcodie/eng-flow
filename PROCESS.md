@@ -49,6 +49,8 @@ Two phases, one gate between them.
    6. Code Review (diff, before it ships)
                  v
    7. QA (browser-based, front-end only)
+                 v
+   8. Ship (gate check, merge, version, push, PR)
 ```
 
 MVP mode and production mode are not a maturity ranking — they're a match to context. A one-off internal tool never needs to graduate. A stakeholder-greenlit product might skip straight past MVP-mode ceremony into the production track, still carving an MVP-cut inside it. Route on what the work actually needs, not on ambition.
@@ -181,6 +183,20 @@ Browser-based, front-end only — skip for backend/CLI/library work with no UI. 
 - Detects Playwright (MCP or project-local) if available; falls back to a guided manual checklist otherwise, never skips QA for lack of tooling
 - Modes: diff-aware (default, scoped to the current story), full, quick
 - Documents bugs with evidence and severity, does not fix them — fixes route through Stage 5 (`eng-flow-implement`)
+
+### Stage 5 note — branching
+
+Any new feature/bug/task starts the same way: pull latest base, create a branch (`feature/<slug>` or `fix/<slug>`), then work — never directly on the base branch. `eng-flow-implement`'s Step 0.5 handles this before the first task of a story begins.
+
+### Stage 8 — Ship
+
+Terminal. Skill: `.claude/skills/eng-flow-ship/SKILL.md`.
+
+- Gate check reuses Stage 6/7's saved verdicts (`code-review.md`, `qa-report.md`) instead of re-reviewing
+- Merge base branch before a final regression pass (catch integration conflicts before merge, not after)
+- Version/changelog bump only if the project already tracks them — never imposed
+- Commit, push, open a PR — no cloud-deploy step, matches actual local/container/GitHub practice
+- Reports GO/NO-GO with a rollback plan
 
 ---
 

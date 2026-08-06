@@ -45,6 +45,17 @@ From **agent-skills**:
 
 **Decision:** add Stage 7 (`eng-flow-qa`), browser-based and front-end-only per explicit scoping — skip entirely for backend/CLI/library work. One structural change from gstack: split finding bugs from fixing them. gstack's `qa` does both in one skill; eng-flow's QA only documents (with evidence, severity-tagged using the same vocabulary as Stage 6), then hands fixes off to the already-built `eng-flow-implement` — keeps every stage's responsibility non-overlapping, consistent with the rest of the track.
 
+From **agent-skills**, additionally:
+- **`git-workflow-and-versioning`**'s branch-naming convention (`feature/<slug>`, `fix/<slug>`) — reused for `eng-flow-implement`'s new branch-setup step (pull latest base, create a branch, before starting a task) and referenced by `eng-flow-ship`'s pre-flight.
+- **`/ship`**'s GO/NO-GO decision format with a mandatory rollback plan — reused for `eng-flow-ship`'s final report, without its parallel-subagent fan-out mechanism (no other eng-flow skill uses subagent dispatch, so this stayed single-agent for consistency).
+
+## Stage 8 — Ship: validated the same way as Stages 1-7
+
+- **gstack**'s `ship` is a large automated pipeline (review-readiness dashboard, specialist review army, Greptile comment resolution, adversarial review, its own version-bump CLI) — almost entirely built on gstack's proprietary infra (gbrain, review-log tooling) that eng-flow has no equivalent for and shouldn't build one just to mirror it. Its *sequence* is sound, though: pre-flight → review-readiness check → merge base before final tests → version/changelog → commit → push → PR.
+- **agent-skills** splits this across `git-workflow-and-versioning` (semver, changelog, atomic commits, trunk-based development, branch naming) and a `/ship` fan-out orchestrator (parallel code-review/security/test-coverage subagents merged into a GO/NO-GO decision with a mandatory rollback plan).
+
+**Decision:** add Stage 8 (`eng-flow-ship`), terminal. The key simplification versus both: eng-flow doesn't need a "review readiness" mechanism built from scratch, because Stages 6 and 7 already produce exactly that evidence as saved files (`code-review.md`, `qa-report.md`) — Ship's gate check just reads them instead of re-reviewing or dispatching parallel reviewers. Version/changelog bumping is conditional on the project already tracking them, not imposed. No cloud-deploy step — matches the user's actual local/container/GitHub practice, same as Stage 3's deployment section.
+
 ## Stage 5 — Implementation: validated the same way as Stages 1-4
 
 - **gstack** has no equivalent. `autoplan` is a review-orchestration pipeline (chains its CEO/design/eng/DX review skills), not a code-writing loop; `ship` is post-implementation (merge, test, PR, deploy); `careful` is a destructive-command guardrail. gstack assumes ordinary agentic coding happens between its review gates — there's no prior art here to reuse.

@@ -32,6 +32,18 @@ Read the story file itself (`eng-flow/backlog/stories/<story-slug>.md`) for acce
 
 ---
 
+## Step 0.5 — Branch setup
+
+Work on a story never happens directly on the base/default branch. Check the current branch:
+
+- **Already on a feature branch for this story** (name matches or contains the story slug): continue as-is.
+- **On base, or on an unrelated branch:** pull latest base (`git fetch origin <base> && git pull`), then create a new branch from it — `feature/<story-slug>` (or `fix/<story-slug>` if the story is a bug fix, judged from its title/type) — and switch to it. Branch naming convention reused from `agent-skills`' `git-workflow-and-versioning` (attribution: `docs/DECISIONS.md`).
+- **Uncommitted changes present that aren't part of this task:** stop and ask how to handle them before switching/creating branches — don't carry unrelated work into a new feature branch silently.
+
+This is what makes `eng-flow-ship`'s pre-flight (Stage 8, "abort if on the base branch") meaningful — the branch it expects already exists by the time a story's tasks are done.
+
+---
+
 ## Step 1 — Pick the next task
 
 Take the first unchecked task in `tasks.md`, in file order (task numbering already reflects dependency order from Stage 4). If its listed dependencies aren't checked off yet, stop and tell the user which task needs to land first rather than skipping ahead.

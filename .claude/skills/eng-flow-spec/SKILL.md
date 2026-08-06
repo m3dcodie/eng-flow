@@ -24,6 +24,10 @@ triggers:
 
 Turns a rough idea, an already-approved product/feature, or a new story into a saved spec — asking only what the current stage owns. See `PROCESS.md` at the repo root for the full model this implements.
 
+## Analytics
+
+At the start of every numbered step below (including Step 0), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-spec "<step name>" "<dated-slug-if-known>"`. As the last action of Step 8, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-spec "<dated-slug>"`. Logs time and token usage per step, incrementally, to `eng-flow/analytics.jsonl` — a killed terminal or restart loses at most the in-flight step, not the whole run. Degrades silently if unavailable; never blocks real work. Rollup: `eng-flow-analytics` (Stage 10).
+
 ## Step 0 — Topic and routing
 
 `$ARGUMENTS` is the rough topic. If empty, ask: "What are we speccing?"
@@ -190,3 +194,5 @@ Write the spec to `eng-flow/specs/<dated-slug>/spec.md`, and `competitor-analysi
 Tell the user the saved path, and what's next:
 - **MVP path:** ready to build — capture a flat task checklist and go, no formal breakdown needed.
 - **Production path** (already-approved, or a validated idea past a scope threshold): note this spec is Stage 1 of the production track; domain modeling is Stage 2, not yet run.
+
+Run the Step 8 analytics-finish call (see Analytics section above) before ending.

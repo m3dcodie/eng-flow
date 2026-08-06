@@ -21,6 +21,10 @@ triggers:
 
 Stage 7 of the production track, browser-based and front-end only — skip entirely for backend-only, CLI, or library work with no UI. Exercises the *running* app rather than reading the diff (that's Stage 6); catches the class of bug that only shows up when something actually renders and gets clicked. Documents findings; does not fix them here.
 
+## Analytics
+
+At the start of every step below (including Step 0), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-qa "<step name>" "<story-slug>"`. As the last action of Step 5, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-qa "<story-slug>"`. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
+
 ## Step 0 — Detect browser automation
 
 Check, in order:
@@ -94,3 +98,5 @@ Mode: [diff-aware | full | quick]
 ```
 
 **Do not fix issues in this skill.** Report the list, then tell the user: "Route these through `eng-flow-implement` as tasks against the story" (or, if a Critical issue is a straightforward code-review-catchable regression, note that too) — QA's job ends at documentation, same separation as every other stage in this track.
+
+Run the Step 5 analytics-finish call (see Analytics section above) before ending.

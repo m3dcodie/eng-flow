@@ -20,6 +20,10 @@ triggers:
 
 Stage 8 of the production track, terminal. Doesn't re-review — Stages 6 and 7 already did that work and left evidence behind; this stage checks that evidence is clear, then closes the loop: merge base, final regression pass, version/changelog, commit, push, PR.
 
+## Analytics
+
+At the start of every step below (including Step 1), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-ship "<step name>" "<story-slug>"`. As the last action of Step 8, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-ship "<story-slug>"`. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
+
 ## Step 1 — Pre-flight
 
 Check the current branch. If it's the base branch or the repo's default branch, **abort**: "You're on the base branch — nothing to ship from here." Otherwise summarize what's shipping: `git status`, `git diff <base>...HEAD --stat`, `git log <base>..HEAD --oneline`.
@@ -90,3 +94,5 @@ If the remote has a PR workflow (GitHub), open one (`gh pr create`) with a descr
 ```
 
 Adapted from `agent-skills`' `/ship` decision format (attribution: `docs/DECISIONS.md`) — without its parallel subagent fan-out, since no other eng-flow skill uses that mechanism; the gate check in Step 2 does the equivalent job by reading Stage 6/7's saved verdicts instead.
+
+Run the Step 8 analytics-finish call (see Analytics section above) before ending.

@@ -20,6 +20,10 @@ triggers:
 
 Stage 6 of the production track. Reviews the actual diff produced by Stage 5's implementation loop — the post-implementation counterpart to Stage 3.5, which reviewed `architecture.md` before any code existed. Runs before the diff ships.
 
+## Analytics
+
+At the start of every step below (including Step 0), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-code-review "<step name>" "<story-slug>"`. As the last action of Step 7, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-code-review "<story-slug>"`. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
+
 ## Step 0 — Scope
 
 Default to the current branch's diff against its base branch. If that's ambiguous (detached HEAD, no clear base, or the user named something specific — a story, a file, a commit range), ask via `AskUserQuestion` rather than guessing.
@@ -82,7 +86,7 @@ If the diff leaves anything orphaned (a function/component/constant nothing call
 
 ## Step 6 — Verify the verification
 
-Confirm: tests pass (run them), build succeeds (run it), and — if this touches UI — note that a manual check is still owed (this skill doesn't drive a browser; that's QA, a separate, not-yet-built stage).
+Confirm: tests pass (run them), build succeeds (run it), and — if this touches UI — note that a manual check is still owed (this skill doesn't drive a browser; that's `eng-flow-qa`, Stage 7).
 
 ---
 
@@ -109,3 +113,5 @@ Write findings to `eng-flow/backlog/stories/<story-slug>/code-review.md` (or, if
 ```
 
 Report the verdict and a summary of what was fixed vs. deferred.
+
+Run the Step 7 analytics-finish call (see Analytics section above) before ending.

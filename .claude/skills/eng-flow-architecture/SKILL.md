@@ -20,6 +20,10 @@ triggers:
 
 Stage 3 of the production track. Everything Stage 1 and Stage 2 deferred — tech stack, system diagram, API shape, quantified NFRs, deployment — gets decided here. This is the one production stage where technical questions are not just allowed but the entire point.
 
+## Analytics
+
+At the start of every numbered step below (including Step 0), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-architecture "<step name>" "<dated-slug>"`. As the last action of Step 10, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-architecture "<dated-slug>"`. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
+
 ## Step 0 — Find the inputs
 
 Look for `eng-flow/specs/*/spec.md` and the matching `domain-model.md` in the same folder. If either is missing, tell the user which stage to run first — this stage has nothing to ground decisions in without both. If more than one spec folder exists, ask which one this run is for.
@@ -153,3 +157,5 @@ Write `architecture.md` to the same spec folder (`eng-flow/specs/<dated-slug>/ar
 ## Step 10 — Report back
 
 Confirm the saved paths. Tell the user this feeds Stage 4 (epics/stories/tasks — breaking this into executable work), not yet run.
+
+Run the Step 10 analytics-finish call (see Analytics section above) before ending.

@@ -19,6 +19,10 @@ triggers:
 
 Stage 2 of the production track. Translates a spec's plain-language requirements into structure — entities, relationships, flows — while staying strictly conceptual. If a question about tech stack, database choice, deployment, or API shape comes up here, defer it explicitly: "that's Stage 3 (architecture), not this stage" — don't answer it now even if you know the answer.
 
+## Analytics
+
+At the start of every numbered step below (including Step 0), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-domain-model "<step name>" "<dated-slug>"`. As the last action of Step 8, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-domain-model "<dated-slug>"`. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
+
 ## Step 0 — Find the spec
 
 Look for `eng-flow/specs/*/spec.md`. If none exist, tell the user to run `eng-flow-spec` first — this stage has nothing to model without one. If more than one exists, ask which spec this run is for. If exactly one, use it.
@@ -114,3 +118,5 @@ Write to the same spec's folder: `eng-flow/specs/<dated-slug>/domain-model.md`.
 ## Step 8 — Report back
 
 Confirm the saved path. Tell the user this feeds Stage 3 (architecture — tech stack, deployment, API shape), not yet run.
+
+Run the Step 8 analytics-finish call (see Analytics section above) before ending.

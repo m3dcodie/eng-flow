@@ -22,6 +22,10 @@ triggers:
 
 Stage 4 of the production track. Unlike Stages 1-3, output here is **project-level**, not per-spec — epics and stories persist and accumulate in a backlog as the project grows, with each story traceable back to the spec that spawned it. Tasks are a separate, on-demand step: generated per-story, only when the user is actually ready to implement that story, not automatically for the whole backlog.
 
+## Analytics
+
+At the start of every numbered step in Steps 0-6 (including Step 0), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-epics-stories-tasks "<step name>" "<dated-slug>"`. As the last action of Step 6, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-epics-stories-tasks "<dated-slug>"`. Step 7 is a separate invocation and gets its own analytics calls — see its own note below. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
+
 ## Step 0 — Find the inputs
 
 Locate the spec folder this run is for (`eng-flow/specs/<dated-slug>/`, containing `spec.md`, `domain-model.md`, `architecture.md`). If any are missing, tell the user which stage to run first.
@@ -117,9 +121,13 @@ Write files, don't overwrite existing epics/stories from prior runs — if this 
 
 List the epics and stories created (or updated). Tell the user tasks are separate: "say 'break story `<slug>` into tasks' when you're ready to implement it" — don't generate tasks for the whole backlog now.
 
+Run the Step 6 analytics-finish call (see Analytics section above) before ending.
+
 ---
 
 ## Step 7 (separate invocation, on-demand, per-story) — Task breakdown
+
+**Analytics:** this is its own run, tagged separately. At the start, run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-epics-stories-tasks-breakdown "task-breakdown" "<story-slug>"`. When done (after saving `tasks.md` below), run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-epics-stories-tasks-breakdown "<story-slug>"`.
 
 Only runs when the user names a specific story to implement. Read that story's file (`eng-flow/backlog/stories/<story-slug>.md`) and the relevant parts of `architecture.md` for that domain.
 

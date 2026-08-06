@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+"""
+eng-flow analytics: per-step checkpoint.
+
+Called at the start of every step in every eng-flow skill. Flushes the
+previous step's segment (time + token usage since the last checkpoint) as
+a durable row in eng-flow/analytics.jsonl, then opens a marker for the
+step now starting. Logging happens incrementally, step by step, so a
+killed terminal or system restart loses at most the current in-flight
+step's data, not the whole skill run.
+
+Usage: eng-flow-analytics-checkpoint <skill> <step-label> [story-slug]
+"""
+import json
+import os
+import sys
+import time
+
+
+def iso(ts):
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(ts))
+
+
+def transcript_path(session_id):
+    if not session_id:
+        return None
+    sanitized = os.getcwd().replace("/", "-")
+    return os.path.join(
+        os.path.expanduser("~"), ".claude", "projects", sanitized, f"{session_id}.jsonl"
+    )
+
+
+def extract_usage(path, start_line, end_line):
+    """Sum token usage from assistant turns in lines [start_line:end_line).
+    start_line/end_line are line COUNTS (as returned by wc -l equivalent),
+    not 0-indexed positions -- slicing on that count is correct either way
+    since both markers were taken the same way."""
+    totals = {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+    }
+    if not path or not os.path.isfile(path):
+        return None
+    try:
+        with open(path, "r", errors="ignore") as f:
+            lines = f.readlines()
+    except OSError:
+        return None
+    for line in lines[start_line:end_line]:
+        try:
+            entry = json.loads(line)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if entry.get("type") != "assistant":
+            continue
+        usage = (entry.get("message") or {}).get("usage")
+        if not usage:
+            continue
+        for k in totals:
+            totals[k] += usage.get(k, 0) or 0
+    return totals
+
+
+def main():
+    if len(sys.argv) < 3:
+        print("usage: eng-flow-analytics-checkpoint <skill> <step-label> [story-slug]", file=sys.stderr)
+        return 0  # never block the calling skill over a usage error
+    skill, step = sys.argv[1], sys.argv[2]
+    story = sys.argv[3] if len(sys.argv) > 3 else None
+
+    root = os.getcwd()
+    state_dir = os.path.join(root, "eng-flow", ".analytics-tmp")
+    log_path = os.path.join(root, "eng-flow", "analytics.jsonl")
+    marker_path = os.path.join(state_dir, f"{skill}.marker.json")
+
+    try:
+        os.makedirs(state_dir, exist_ok=True)
+    except OSError:
+        return 0  # degrade silently -- analytics must never block real work
+
+    session = os.environ.get("CLAUDE_CODE_SESSION_ID")
+    tpath = transcript_path(session)
+    now_ts = time.time()
+    now_line = 0
+    if tpath and os.path.isfile(tpath):
+        try:
+            with open(tpath, "r", errors="ignore") as f:
+                now_line = sum(1 for _ in f)
+        except OSError:
+            now_line = 0
+
+    # Flush the previous segment, if a marker exists (from this run, or an
+    # orphaned one left behind by a crash/restart -- either way it's real
+    # unlogged work and worth recovering, not discarding).
+    if os.path.isfile(marker_path):
+        try:
+            with open(marker_path) as f:
+                marker = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            marker = None
+        if marker:
+            outcome = "completed" if marker.get("session") == session else "recovered"
+            usage = extract_usage(marker.get("transcript"), marker.get("line", 0), now_line)
+            row = {
+                "run_id": marker.get("run_id"),
+                "skill": skill,
+                "step": marker.get("step"),
+                "story": marker.get("story"),
+                "ts_start": iso(marker["ts"]),
+                "ts_end": iso(now_ts),
+                "duration_s": int(now_ts - marker["ts"]),
+                "usage": usage,
+                "outcome": outcome,
+            }
+            try:
+                os.makedirs(os.path.dirname(log_path), exist_ok=True)
+                with open(log_path, "a") as f:
+                    f.write(json.dumps(row) + "\n")
+            except OSError:
+                pass
+            run_id = marker.get("run_id")
+        else:
+            run_id = f"{skill}-{session or 'nosession'}-{int(now_ts)}"
+    else:
+        run_id = f"{skill}-{session or 'nosession'}-{int(now_ts)}"
+
+    new_marker = {
+        "run_id": run_id,
+        "step": step,
+        "story": story,
+        "ts": now_ts,
+        "line": now_line,
+        "transcript": tpath,
+        "session": session,
+    }
+    try:
+        with open(marker_path, "w") as f:
+            json.dump(new_marker, f)
+    except OSError:
+        pass
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

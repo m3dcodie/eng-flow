@@ -20,6 +20,10 @@ triggers:
 
 Stage 9 of the production track. Reflects on a story that just shipped (or a specific bug/incident) and captures anything worth remembering into a project-level learnings log — not a weekly team-metrics dashboard, a blameless, root-cause-focused look at *this* piece of work. Only useful if what it logs actually gets read later — `eng-flow-implement` checks this log before starting new tasks (see its Step 0).
 
+## Analytics
+
+At the start of every step below (including Step 0), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-retro "<step name>" "<story-slug>"`. As the last action of Step 5, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-retro "<story-slug>"`. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
+
 ## Step 0 — Scope
 
 Default: the story that just shipped (most recent `eng-flow-ship` run, or the story named in the request). Can also target a specific bug fix or incident directly, without a full story context, if that's what the user names.
@@ -98,3 +102,5 @@ Append the distilled entries from Step 3 to the project-level `eng-flow/learning
 ```
 
 Report a summary: what was learned, what action items were created, and confirm both files were saved.
+
+Run the Step 5 analytics-finish call (see Analytics section above) before ending.

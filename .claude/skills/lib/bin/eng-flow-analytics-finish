@@ -1,0 +1,117 @@
+#!/usr/bin/env python3
+"""
+eng-flow analytics: close out a skill run.
+
+Called once, as the last action of a skill's final step. Flushes the
+last open segment (since the previous checkpoint) as a durable row and
+deletes the marker -- a clean finish, not a crash recovery.
+
+Usage: eng-flow-analytics-finish <skill> [story-slug]
+"""
+import json
+import os
+import sys
+import time
+
+
+def iso(ts):
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(ts))
+
+
+def transcript_path(session_id):
+    if not session_id:
+        return None
+    sanitized = os.getcwd().replace("/", "-")
+    return os.path.join(
+        os.path.expanduser("~"), ".claude", "projects", sanitized, f"{session_id}.jsonl"
+    )
+
+
+def extract_usage(path, start_line, end_line):
+    totals = {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+    }
+    if not path or not os.path.isfile(path):
+        return None
+    try:
+        with open(path, "r", errors="ignore") as f:
+            lines = f.readlines()
+    except OSError:
+        return None
+    for line in lines[start_line:end_line]:
+        try:
+            entry = json.loads(line)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if entry.get("type") != "assistant":
+            continue
+        usage = (entry.get("message") or {}).get("usage")
+        if not usage:
+            continue
+        for k in totals:
+            totals[k] += usage.get(k, 0) or 0
+    return totals
+
+
+def main():
+    if len(sys.argv) < 2:
+        print("usage: eng-flow-analytics-finish <skill> [story-slug]", file=sys.stderr)
+        return 0
+    skill = sys.argv[1]
+
+    root = os.getcwd()
+    state_dir = os.path.join(root, "eng-flow", ".analytics-tmp")
+    log_path = os.path.join(root, "eng-flow", "analytics.jsonl")
+    marker_path = os.path.join(state_dir, f"{skill}.marker.json")
+
+    if not os.path.isfile(marker_path):
+        return 0  # nothing open -- e.g. skill aborted before its first checkpoint
+
+    try:
+        with open(marker_path) as f:
+            marker = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return 0
+
+    session = os.environ.get("CLAUDE_CODE_SESSION_ID")
+    tpath = transcript_path(session)
+    now_ts = time.time()
+    now_line = 0
+    if tpath and os.path.isfile(tpath):
+        try:
+            with open(tpath, "r", errors="ignore") as f:
+                now_line = sum(1 for _ in f)
+        except OSError:
+            now_line = 0
+
+    usage = extract_usage(marker.get("transcript"), marker.get("line", 0), now_line)
+    row = {
+        "run_id": marker.get("run_id"),
+        "skill": skill,
+        "step": marker.get("step"),
+        "story": marker.get("story"),
+        "ts_start": iso(marker["ts"]),
+        "ts_end": iso(now_ts),
+        "duration_s": int(now_ts - marker["ts"]),
+        "usage": usage,
+        "outcome": "completed",
+    }
+    try:
+        os.makedirs(os.path.dirname(log_path), exist_ok=True)
+        with open(log_path, "a") as f:
+            f.write(json.dumps(row) + "\n")
+    except OSError:
+        pass
+
+    try:
+        os.remove(marker_path)
+    except OSError:
+        pass
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

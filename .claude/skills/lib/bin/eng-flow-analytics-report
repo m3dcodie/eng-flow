@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+"""
+eng-flow analytics: rollup report.
+
+Reads eng-flow/analytics.jsonl (written incrementally by
+eng-flow-analytics-checkpoint/-finish across every stage) and prints a
+per-story and per-skill summary: wall-clock time and token usage broken
+down by category (input / output / cache-creation / cache-read -- these
+cost very differently, so they're kept separate, not flattened into one
+number). No dollar estimate -- pricing changes and isn't this script's
+job to track; report raw tokens.
+
+Usage: eng-flow-analytics-report [story-slug]
+"""
+import json
+import os
+import sys
+
+
+def load_rows(path):
+    rows = []
+    if not os.path.isfile(path):
+        return rows
+    with open(path, "r", errors="ignore") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    return rows
+
+
+def empty_usage():
+    return {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+    }
+
+
+def add_usage(totals, usage):
+    if not usage:
+        return
+    for k in totals:
+        totals[k] += usage.get(k, 0) or 0
+
+
+def fmt_duration(seconds):
+    m, s = divmod(int(seconds), 60)
+    h, m = divmod(m, 60)
+    if h:
+        return f"{h}h{m}m"
+    if m:
+        return f"{m}m{s}s"
+    return f"{s}s"
+
+
+def fmt_tokens(n):
+    if n >= 1_000_000:
+        return f"{n/1_000_000:.1f}M"
+    if n >= 1_000:
+        return f"{n/1_000:.1f}k"
+    return str(n)
+
+
+def main():
+    root = os.getcwd()
+    log_path = os.path.join(root, "eng-flow", "analytics.jsonl")
+    filter_story = sys.argv[1] if len(sys.argv) > 1 else None
+
+    rows = load_rows(log_path)
+    if not rows:
+        print("No analytics data yet (eng-flow/analytics.jsonl is empty or missing).")
+        return 0
+
+    if filter_story:
+        rows = [r for r in rows if r.get("story") == filter_story]
+        if not rows:
+            print(f"No analytics data for story '{filter_story}'.")
+            return 0
+
+    by_story = {}
+    by_skill = {}
+    recovered_count = 0
+
+    for r in rows:
+        story = r.get("story") or "(no story)"
+        skill = r.get("skill") or "(unknown skill)"
+        dur = r.get("duration_s", 0) or 0
+        usage = r.get("usage")
+        if r.get("outcome") == "recovered":
+            recovered_count += 1
+
+        s = by_story.setdefault(story, {"duration_s": 0, "usage": empty_usage(), "steps": 0})
+        s["duration_s"] += dur
+        s["steps"] += 1
+        add_usage(s["usage"], usage)
+
+        k = by_skill.setdefault(skill, {"duration_s": 0, "usage": empty_usage(), "steps": 0})
+        k["duration_s"] += dur
+        k["steps"] += 1
+        add_usage(k["usage"], usage)
+
+    def print_usage_line(label, data):
+        u = data["usage"]
+        total_tokens = sum(u.values())
+        print(
+            f"  {label:<32} {fmt_duration(data['duration_s']):>8}  "
+            f"steps={data['steps']:<4} "
+            f"in={fmt_tokens(u['input_tokens'])} out={fmt_tokens(u['output_tokens'])} "
+            f"cache-w={fmt_tokens(u['cache_creation_input_tokens'])} "
+            f"cache-r={fmt_tokens(u['cache_read_input_tokens'])} "
+            f"(total={fmt_tokens(total_tokens)})"
+        )
+
+    print("=== By story ===")
+    for story, data in sorted(by_story.items(), key=lambda kv: -kv[1]["duration_s"]):
+        print_usage_line(story, data)
+
+    print()
+    print("=== By skill/stage ===")
+    for skill, data in sorted(by_skill.items(), key=lambda kv: -kv[1]["duration_s"]):
+        print_usage_line(skill, data)
+
+    if recovered_count:
+        print()
+        print(
+            f"Note: {recovered_count} segment(s) were recovered from an interrupted "
+            "run (killed terminal / restart) rather than a clean finish -- "
+            "included in the totals above, flagged here for data-quality awareness."
+        )
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

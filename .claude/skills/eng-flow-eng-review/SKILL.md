@@ -6,6 +6,7 @@ allowed-tools:
   - Grep
   - Glob
   - Write
+  - Bash
   - AskUserQuestion
 triggers:
   - engineering review
@@ -18,6 +19,10 @@ triggers:
 # eng-flow engineering review
 
 Stage 3.5 of the production track, between Architecture and Epics/Stories/Tasks. Reviews `architecture.md` for the kind of problems that are cheap to fix now and expensive to fix after a backlog is built on top of them — this is a design review, not a code review; no code exists yet at this point in the track.
+
+## Analytics
+
+At the start of every numbered step below (including Step 0), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-eng-review "<step name>" "<dated-slug>"`. As the last action of Step 5, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-eng-review "<dated-slug>"`. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
 
 ## Step 0 — Find the inputs
 
@@ -86,3 +91,5 @@ For any finding marked "Accepted" or "Changed," update `architecture.md` directl
 ## Step 5 — Report back
 
 Summarize what was reviewed, what changed (if anything), and confirm `architecture.md` is up to date. Tell the user this feeds Stage 4 (epics/stories/tasks).
+
+Run the Step 5 analytics-finish call (see Analytics section above) before ending.

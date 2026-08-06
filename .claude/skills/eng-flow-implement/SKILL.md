@@ -22,6 +22,10 @@ triggers:
 
 Stage 5 of the production track, terminal — consumes a story's `tasks.md` (from `eng-flow-epics-stories-tasks`'s on-demand task breakdown) and implements the next pending task. One task per run, using an incremental TDD loop, then stop — no whole-plan auto mode yet; that's deferred.
 
+## Analytics
+
+At the start of every step below (including Step 0 and Step 0.5), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-implement "<step name>" "<story-slug>"`. As the last action of Step 5, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-implement "<story-slug>"`. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
+
 ## Step 0 — Find the story
 
 Look for `eng-flow/backlog/stories/*/tasks.md`. If none exist, tell the user to break a story into tasks first (`eng-flow-epics-stories-tasks` Step 7).
@@ -91,6 +95,8 @@ Stop and ask the user, don't push through, when:
 ## Step 5 — Report back
 
 Summarize: task completed, tests added, the commit made, anything flagged as "noticed but not touching." State how many tasks remain unchecked in this story's `tasks.md` — if more remain, tell the user to re-invoke this skill to continue with the next one (one task per run, by design).
+
+Run the Step 5 analytics-finish call (see Analytics section above) before ending.
 
 ---
 

@@ -53,6 +53,8 @@ Two phases, one gate between them.
    8. Ship (gate check, merge, version, push, PR)
                  v
    9. Retro (capture learnings, feeds back into Stage 5)
+                 v
+  10. Analytics (on-demand rollup, read-only)
 ```
 
 MVP mode and production mode are not a maturity ranking — they're a match to context. A one-off internal tool never needs to graduate. A stakeholder-greenlit product might skip straight past MVP-mode ceremony into the production track, still carving an MVP-cut inside it. Route on what the work actually needs, not on ambition.
@@ -208,6 +210,19 @@ Skill: `.claude/skills/eng-flow-retro/SKILL.md`.
 - Gathers signal from `tasks.md`, `code-review.md`, `qa-report.md`, and the branch's git log rather than working from memory
 - Durable learnings (typed: pattern/pitfall/preference/architecture/tool/operational, confidence-scored) appended to project-level `eng-flow/learnings.md`
 - Only useful if read later: `eng-flow-implement`'s Step 0 checks `learnings.md` before starting a task
+
+### Analytics (cross-cutting, not a sequential stage)
+
+Every stage above (1 through 9) logs its own time and token usage, incrementally, step by step, to project-level `eng-flow/analytics.jsonl` — via `eng-flow-analytics-checkpoint` at the start of each step and `eng-flow-analytics-finish` at the end, shared scripts under `.claude/skills/lib/bin/`. Logging incrementally (not just once at start/end of a whole skill run) means a killed terminal or system restart loses at most the current in-flight step, not the whole run — an orphaned marker from a crash gets recovered and flushed the next time that skill starts.
+
+Token counts come from Claude Code's own session transcript (`$CLAUDE_CODE_SESSION_ID`), which carries real per-turn usage data — not something gstack or agent-skills does. Degrades to time-only if unavailable; never blocks the actual work.
+
+### Stage 10 — Analytics
+
+Read-only, on-demand. Skill: `.claude/skills/eng-flow-analytics/SKILL.md`.
+
+- Rolls up `analytics.jsonl` by story and by stage — time and tokens, broken down by category (input/output/cache-write/cache-read), not flattened into one number
+- No dollar-cost estimate — check Anthropic's pricing page or Claude Code's `/cost` for that
 
 ---
 

@@ -76,8 +76,8 @@ If it doesn't survive these, don't spec it yet — go find sharper answers first
 
 Move fast, autonomously, minimal ceremony.
 
-- Spec: if the user already has a detailed spec, use it as-is. Otherwise, fill `templates/mvp/00-mvp-brief.md` — a one-pager, not an interrogation.
-- Tasks: `templates/mvp/01-task-list.md` — a flat checklist. No epics, no stories, no formal breakdown.
+- Spec: if the user already has a detailed spec, use it as-is. Otherwise, capture a one-pager — problem, scope, done-when — not a full interrogation.
+- Tasks: a flat checklist. No epics, no stories, no formal breakdown.
 - No mandated testing or security ceremony. Add it ad hoc if the work warrants it.
 - Ship, iterate, don't look back unless something breaks.
 
@@ -85,7 +85,7 @@ Move fast, autonomously, minimal ceremony.
 
 ## Graduation gate
 
-Before moving to production mode, check `templates/graduation-checklist.md`. Don't graduate speculatively — graduate when the checklist says so, not because the code has gotten big or because production mode feels more "serious."
+Before moving to production mode, confirm the work actually needs it — multiple stakeholders involved, non-technical people need to sign off on requirements, the codebase needs to outlive this sprint, or a handoff to another engineer is likely. No checklist artifact for this; it's a judgment call. Don't graduate speculatively just because the code has gotten big or production mode feels more "serious."
 
 ---
 
@@ -95,7 +95,7 @@ Four stages, strictly staged — each owns different questions, none overlap. A 
 
 ### Stage 1 — Spec / Business Requirements (pure requirements, zero technical decisions)
 
-Written in plain, non-technical language — the artifact both business and engineering sign off on as "this is what we agreed." Template: `templates/production/00-business-requirements.md`.
+Written in plain, non-technical language — the artifact both business and engineering sign off on as "this is what we agreed." Skill: `.claude/skills/eng-flow-spec/SKILL.md`.
 
 Covers, via a phased interrogation:
 
@@ -117,11 +117,11 @@ Also captured: user journeys/stories (narrative scenarios), functional requireme
 
 **Optional — competitor/market analysis** (opt-in, bounded — see "Bounded research" below).
 
-Exception: if this is a feature/story in an *existing* product (routing path 3), a technical-grounding pass is appropriate here, because real code already embodies real constraints worth reading before asking. That pass reads the relevant code first, then asks about data model, API, and integration points — see `templates/mvp/00-mvp-brief.md` for the lighter version of this same idea at MVP scale.
+Exception: if this is a feature/story in an *existing* product (routing path 3), a technical-grounding pass is appropriate here, because real code already embodies real constraints worth reading before asking. That pass reads the relevant code first, then asks about data model, API, and integration points — the same idea applies at MVP scale, just lighter.
 
 ### Stage 2 — Domain Model
 
-Owned by an "architect" role. Takes Stage 1 as input, translates it into structure — still conceptual, no tech stack yet. Template: `templates/production/01-domain-model.md`.
+Owned by an "architect" role. Takes Stage 1 as input, translates it into structure — still conceptual, no tech stack yet. Skill: `.claude/skills/eng-flow-domain-model/SKILL.md`.
 
 - Domain model — entities, relationships, ubiquitous language, per domain named in Stage 1's domain list
 - Data flow diagram(s) — how information moves between domains/subsystems
@@ -131,13 +131,13 @@ Owned by an "architect" role. Takes Stage 1 as input, translates it into structu
 
 ### Stage 3 — Architecture
 
-Only here do tech stack, deployment, and API/microservice shape get decided. Template: `templates/production/02-architecture.md`.
+Only here do tech stack, deployment, and API/microservice shape get decided. Skill: `.claude/skills/eng-flow-architecture/SKILL.md`.
 
 - Tech stack and key dependencies
 - Frontend/backend separation (or services, if warranted by scope — don't split prematurely)
 - API contracts
 - Deployment strategy — local/containers now, cloud-ready notes for later; match the user's actual current practice (local dev, containers, GitHub) rather than assuming cloud deploy is imminent
-- ADRs for significant decisions (`templates/production/04-adr.md`) — one per decision, as they come up, not retrofitted
+- ADRs for significant decisions — one per decision, as they come up, not retrofitted
 
 ### Stage 3.5 — Engineering Review
 
@@ -150,7 +150,7 @@ Reviews `architecture.md` before any backlog work is built on top of it — catc
 
 ### Stage 4 — Epics / Stories / Tasks
 
-Breaks Stage 2/3 into executable work. Template: `templates/production/03-epics-stories-tasks.md`. Epics should map to the domains/functional areas named back in Stage 1. Task breakdown per story is on-demand, not automatic for the whole backlog.
+Breaks Stage 2/3 into executable work. Skill: `.claude/skills/eng-flow-epics-stories-tasks/SKILL.md`. Epics should map to the domains/functional areas named back in Stage 1. Task breakdown per story is on-demand, not automatic for the whole backlog.
 
 ### Stage 5 — Implementation
 

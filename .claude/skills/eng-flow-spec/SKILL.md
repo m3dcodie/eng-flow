@@ -188,5 +188,5 @@ Write the spec to `eng-flow/specs/<dated-slug>/spec.md`, and `competitor-analysi
 ## Step 8 — Report back
 
 Tell the user the saved path, and what's next:
-- **MVP path:** point to `templates/mvp/01-task-list.md` — ready to build.
+- **MVP path:** ready to build — capture a flat task checklist and go, no formal breakdown needed.
 - **Production path** (already-approved, or a validated idea past a scope threshold): note this spec is Stage 1 of the production track; domain modeling is Stage 2, not yet run.

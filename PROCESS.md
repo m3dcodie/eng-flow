@@ -40,7 +40,11 @@ Two phases, one gate between them.
                  v
    3. Architecture
                  v
+   3.5. Engineering Review
+                 v
    4. Epics / Stories / Tasks
+                 v
+   5. Implementation (per task, on demand)
 ```
 
 MVP mode and production mode are not a maturity ranking — they're a match to context. A one-off internal tool never needs to graduate. A stakeholder-greenlit product might skip straight past MVP-mode ceremony into the production track, still carving an MVP-cut inside it. Route on what the work actually needs, not on ambition.
@@ -146,7 +150,16 @@ Reviews `architecture.md` before any backlog work is built on top of it — catc
 
 ### Stage 4 — Epics / Stories / Tasks
 
-Breaks Stage 2/3 into executable work. Template: `templates/production/03-epics-stories-tasks.md`. Epics should map to the domains/functional areas named back in Stage 1.
+Breaks Stage 2/3 into executable work. Template: `templates/production/03-epics-stories-tasks.md`. Epics should map to the domains/functional areas named back in Stage 1. Task breakdown per story is on-demand, not automatic for the whole backlog.
+
+### Stage 5 — Implementation
+
+Terminal stage, on-demand per task. Skill: `.claude/skills/eng-flow-implement/SKILL.md`.
+
+- Consumes a story's `tasks.md` (Stage 4's on-demand output), implements the next pending task using an incremental TDD loop (implement → test → verify → commit), one task per run
+- Scope discipline: touch only what the task requires, log anything else noticed rather than fixing it inline
+- Hard stop before high-risk/irreversible changes (auth, destructive migrations, payments, deletions, deploys, secrets) — explicit sign-off required
+- Whole-story "auto" mode (implement every remaining task in one approved pass) is not built yet — deferred
 
 ---
 

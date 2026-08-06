@@ -51,6 +51,8 @@ Two phases, one gate between them.
    7. QA (browser-based, front-end only)
                  v
    8. Ship (gate check, merge, version, push, PR)
+                 v
+   9. Retro (capture learnings, feeds back into Stage 5)
 ```
 
 MVP mode and production mode are not a maturity ranking — they're a match to context. A one-off internal tool never needs to graduate. A stakeholder-greenlit product might skip straight past MVP-mode ceremony into the production track, still carving an MVP-cut inside it. Route on what the work actually needs, not on ambition.
@@ -197,6 +199,15 @@ Terminal. Skill: `.claude/skills/eng-flow-ship/SKILL.md`.
 - Version/changelog bump only if the project already tracks them — never imposed
 - Commit, push, open a PR — no cloud-deploy step, matches actual local/container/GitHub practice
 - Reports GO/NO-GO with a rollback plan
+
+### Stage 9 — Retro
+
+Skill: `.claude/skills/eng-flow-retro/SKILL.md`.
+
+- Per-story, blameless, root-cause-focused — not a weekly velocity dashboard
+- Gathers signal from `tasks.md`, `code-review.md`, `qa-report.md`, and the branch's git log rather than working from memory
+- Durable learnings (typed: pattern/pitfall/preference/architecture/tool/operational, confidence-scored) appended to project-level `eng-flow/learnings.md`
+- Only useful if read later: `eng-flow-implement`'s Step 0 checks `learnings.md` before starting a task
 
 ---
 

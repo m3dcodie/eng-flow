@@ -56,6 +56,14 @@ From **agent-skills**, additionally:
 
 **Decision:** add Stage 8 (`eng-flow-ship`), terminal. The key simplification versus both: eng-flow doesn't need a "review readiness" mechanism built from scratch, because Stages 6 and 7 already produce exactly that evidence as saved files (`code-review.md`, `qa-report.md`) — Ship's gate check just reads them instead of re-reviewing or dispatching parallel reviewers. Version/changelog bumping is conditional on the project already tracking them, not imposed. No cloud-deploy step — matches the user's actual local/container/GitHub practice, same as Stage 3's deployment section.
 
+## Stage 9 — Retro: validated the same way as Stages 1-8
+
+- **gstack**'s actual `retro` skill is a weekly team-velocity dashboard (shipping streak, session/context-switching patterns, per-author commit metrics) — not what "reflect learnings, don't repeat mistakes" describes. The real match is embedded *inside* `plan-eng-review` and `ship`: a "Capture Learnings" mechanism — typed entries (pattern/pitfall/preference/architecture/tool/operational), confidence-scored, gated on "would this save time in a future session?" — built on `gstack-learnings-log` + gbrain, both proprietary infra with no eng-flow equivalent.
+- **agent-skills** has no retro concept, but `debugging-and-error-recovery`'s "Fix the Root Cause, not the symptom" (ask why until reaching the actual cause) and "Guard Against Recurrence" (a regression test that would have caught it) carry the right instinct at a smaller scale.
+- **External validation** (web search, 2026-08-07): the standard industry shape for this is the blameless postmortem — system-focused language ("what process/check was missing," not "who"), root cause analysis, action items with owners. Organizations that run these consistently resolve repeat failures 2.5× faster than blame-first review cultures.
+
+**Decision:** add Stage 9 (`eng-flow-retro`) — per-story, not weekly; root-cause-focused, not a metrics dashboard. Reuses gstack's learnings-entry taxonomy and confidence scoring as a plain project-level `eng-flow/learnings.md` file instead of `gstack-learnings-log`/gbrain. The mechanism only works if something reads the log later — `eng-flow-implement`'s Step 0 now checks `learnings.md` for entries relevant to the files/domain about to be touched, before starting a task.
+
 ## Stage 5 — Implementation: validated the same way as Stages 1-4
 
 - **gstack** has no equivalent. `autoplan` is a review-orchestration pipeline (chains its CEO/design/eng/DX review skills), not a code-writing loop; `ship` is post-implementation (merge, test, PR, deploy); `careful` is a destructive-command guardrail. gstack assumes ordinary agentic coding happens between its review gates — there's no prior art here to reuse.

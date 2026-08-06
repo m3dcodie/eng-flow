@@ -30,6 +30,8 @@ If exactly one story has pending (unchecked) tasks, use it. If more than one doe
 
 Read the story file itself (`eng-flow/backlog/stories/<story-slug>.md`) for acceptance criteria and architecture notes, and the relevant parts of `architecture.md` for that domain — this is the context the task was scoped against.
 
+If `eng-flow/learnings.md` exists (built up by `eng-flow-retro`, Stage 9), skim it for entries whose **files** or subject matter overlap what this task touches. A relevant `pitfall` entry means don't repeat it; a relevant `pattern`, `preference`, or `operational` entry means apply it without re-deriving it. This is the step that makes retros worth running — a learnings log nobody reads before starting new work is dead weight.
+
 ---
 
 ## Step 0.5 — Branch setup

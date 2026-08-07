@@ -42,6 +42,8 @@ Two phases, one gate between them.
                  v
    3.5. Engineering Review
                  v
+   3.6. UI/UX Design (only if the spec has UI journeys)
+                 v
    4. Epics / Stories / Tasks
                  v
    5. Implementation (per task, on demand)
@@ -158,9 +160,18 @@ Reviews `architecture.md` before any backlog work is built on top of it — catc
 - Interactive, one issue at a time — each finding grounded in the specific section of `architecture.md` it reacts to, explicit accept/change/reject from the user before moving on
 - Findings and resolutions logged to `eng-review.md` in the same spec folder; accepted/changed findings also update `architecture.md` directly
 
+### Stage 3.6 — UI/UX Design
+
+Only runs if the spec's user journeys have a UI surface — skipped entirely for backend/CLI/library work, same skip discipline Stage 7 applies. Skill: `.claude/skills/eng-flow-ui-design/SKILL.md`.
+
+- Design system — typography, color, spacing, motion — project-level (`eng-flow/design-system.md`), reused across specs rather than rebuilt each run, same "boring by default" discipline Stage 3 applies to tech stack
+- Per-journey wireframes (markdown/ASCII, low-fidelity) — starts from Stage 2's optional wireframes if present
+- Design gate — interactive, one dimension at a time (hierarchy, consistency, accessibility, responsiveness), scored 0-10, fix-to-10, explicit per-journey approval before moving on
+- Only journeys that pass the gate get promoted to a static HTML/CSS mockup, styled against the design system and targeting Stage 3's chosen frontend stack
+
 ### Stage 4 — Epics / Stories / Tasks
 
-Breaks Stage 2/3 into executable work. Skill: `.claude/skills/eng-flow-epics-stories-tasks/SKILL.md`. Epics should map to the domains/functional areas named back in Stage 1. Task breakdown per story is on-demand, not automatic for the whole backlog.
+Breaks Stage 2/3 into executable work, and Stage 3.6's gated wireframes/mockups where that stage ran. Skill: `.claude/skills/eng-flow-epics-stories-tasks/SKILL.md`. Epics should map to the domains/functional areas named back in Stage 1. UI-touching stories get acceptance criteria grounded in the approved mockup rather than inventing layout at Stage 5. Task breakdown per story is on-demand, not automatic for the whole backlog.
 
 ### Stage 5 — Implementation
 
@@ -243,10 +254,15 @@ Everything lives inside the project's own repo — no global/external store.
 
 ```
 <project-root>/eng-flow/
+  design-system.md               # project-level, reused across specs (Stage 3.6)
   specs/
     2026-08-06-csv-export/
       spec.md
       competitor-analysis.md     # only if that sub-step ran
+      wireframes/                # only if Stage 3.6 ran (spec had UI journeys)
+        checkout-flow.md
+      mockups/                   # only for wireframes gated at Stage 3.6
+        checkout-flow.html
 ```
 
 The directory name is `{date}-{slug}`, where `slug` is the spec's topic, lowercased, spaces to dashes, stripped to `[a-z0-9._-]` — the date prefix avoids collisions between specs on the same topic over time.

@@ -94,7 +94,7 @@ Stop and ask the user, don't push through, when:
 
 ## Step 5 — Report back
 
-Summarize: task completed, tests added, the commit made, anything flagged as "noticed but not touching." State how many tasks remain unchecked in this story's `tasks.md` — if more remain, tell the user to re-invoke this skill to continue with the next one (one task per run, by design).
+Summarize: task completed, tests added, the commit made, anything flagged as "noticed but not touching." State how many tasks remain unchecked in this story's `tasks.md` — if more remain, tell the user to run `/clear` before re-invoking this skill for the next task. Each task run reads its own context fresh from `tasks.md`, the story file, and `architecture.md` (Step 0) — carrying prior tasks' conversation forward adds nothing but token cost and stale context, so a clean session per task is the recommended way to run the loop.
 
 Run the Step 5 analytics-finish call (see Analytics section above) before ending.
 

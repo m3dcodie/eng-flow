@@ -8,6 +8,7 @@ allowed-tools:
   - Write
   - Bash
   - AskUserQuestion
+  - Agent
 triggers:
   - code review
   - review this pr
@@ -60,6 +61,24 @@ When flagging a structural problem, propose the specific remedy (extract a helpe
 
 ---
 
+## Step 3.5 — Independent subagent pass
+
+Step 3 ran in this conversation — often the same one that wrote the diff. Counter self-review bias with independent passes, dispatched via the `Agent` tool, foreground (their output feeds Step 5). Give each subagent **only what it needs to review — not this conversation's context or Step 1-3's findings**.
+
+**Always** — one blind adversarial subagent, general-purpose:
+
+> "Read the diff for `<scope from Step 0>` (`git diff <base>...HEAD` or equivalent). You are an independent senior engineer reviewing this — you have not seen any prior review and have no stake in the code. Find what a structured checklist review would miss: assumptions that don't hold, interactions between changed files, error paths that look handled but aren't, anything that works in the demo path but not the edge case. For each finding: what's wrong, severity, file:line, and the fix."
+
+**Conditionally** — one security-specialist subagent, only if the diff touches auth, payments, secrets, PII, data access, or config/session handling. Skip it and say why if the diff clearly doesn't. Prompt adapted from `agent-skills`' `security-auditor` persona (attribution: `docs/DECISIONS.md`), scoped to this diff:
+
+> "Read the diff for `<scope from Step 0>`. You are a security engineer conducting a focused audit. Check: input validation at boundaries, injection vectors, auth/authz on every changed endpoint, secrets in code/logs, encryption in transit/at rest where relevant, IDOR (can a user reach another user's data through this change). Map findings to OWASP Top 10 where relevant. For each: severity (Critical/High/Medium/Low/Info), file:line, exploit scenario for Critical/High, and the fix."
+
+If both trigger, dispatch both `Agent` calls in the same assistant turn so they run in parallel. If a subagent fails or times out, note it and continue — the structured Step 3 review still stands on its own.
+
+Merge each subagent's findings into Step 4's severity list, tagged by source (`five-axis` / `adversarial` / `security specialist`). Drop exact duplicates; keep independent findings that reach the same conclusion — that agreement is informative, not redundant.
+
+---
+
 ## Step 4 — Severity and gating
 
 Tag every finding:
@@ -74,7 +93,7 @@ Tag every finding:
 
 Lead with what matters — correctness and security first. Don't bury a real Critical/Required finding under a pile of Nits; if there's one structural problem and ten nits, the structural problem *is* the review.
 
-For each Critical or Required finding, state the issue, the recommendation, and why — then stop and wait for the user's explicit response before raising the next one, same discipline as every other eng-flow stage. Don't assume the obvious fix and move on.
+For each Critical or Required finding, state the issue, its source tag, the recommendation, and why — then stop and wait for the user's explicit response before raising the next one, same discipline as every other eng-flow stage. Don't assume the obvious fix and move on.
 
 ---
 
@@ -100,6 +119,7 @@ Write findings to `eng-flow/backlog/stories/<story-slug>/code-review.md` (or, if
 
 ## Findings
 ### [Severity] [Title]
+**Source:** [five-axis | adversarial | security specialist]
 **File:** [path:line]
 **Issue:** [...]
 **Resolution:** [Fixed | Deferred — reason | Won't fix — reason]

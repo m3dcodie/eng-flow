@@ -8,6 +8,8 @@ allowed-tools:
   - Write
   - Bash
   - AskUserQuestion
+  - Artifact
+  - Skill
 triggers:
   - architecture
   - tech stack
@@ -26,7 +28,11 @@ At the start of every numbered step below (including Step 0), run `python3 .clau
 
 ## Step 0 — Find the inputs
 
-Look for `eng-flow/specs/*/spec.md` and the matching `domain-model.md` in the same folder. If either is missing, tell the user which stage to run first — this stage has nothing to ground decisions in without both. If more than one spec folder exists, ask which one this run is for.
+Look for `eng-flow/specs/*/spec.md` and the matching `domain-model.md` in the same folder. If more than one spec folder exists, ask which one this run is for.
+
+If `spec.md` is missing: offer via `AskUserQuestion` — "No spec found for this. eng-flow-spec captures the problem, audience, and scope this stage needs to ground decisions in. Run it now?" Options: A) Run eng-flow-spec now (resume architecture right after) B) Cancel — I'll run it myself. If A, invoke `eng-flow-spec` with the `Skill` tool, then re-run this check once it saves. If B, stop here.
+
+If `spec.md` exists but `domain-model.md` is missing: same offer, naming `eng-flow-domain-model` instead — its entities, relationships, and conceptual diagram are this step's other required input.
 
 Read the spec's constraints (Phase 1, "what constraints came with the approval") and non-functional requirements, and the domain model's entities/relationships/conceptual diagram — these are the inputs to every step below.
 
@@ -43,6 +49,8 @@ Apply **boring by default**: prefer proven, well-understood technology unless th
 ## Step 2 — System diagram
 
 Take Stage 2's conceptual diagram (domain boxes, no tech) and promote it to a **container-level diagram** (C4 model terminology: context → container → component → code; this stage stops at container, not component/code level): same domains, now labeled with the actual service/technology handling each. This is the one diagram in the whole track where tech labels belong.
+
+Draft it as mermaid first — that's what goes in the saved file. Then ask once: "Want this rendered as a diagram you can actually see, or is the mermaid source in the saved file enough?" Default to skipping if the user doesn't ask. If yes, load the `artifact-diagramming` skill and publish via the `Artifact` tool; note the artifact URL alongside the saved diagram source in Step 8/9.
 
 ---
 
@@ -126,6 +134,7 @@ Accepted
 
 ## System Diagram
 [Container-level, domains from Stage 2 now tech-labeled]
+[Artifact URL, if rendered; omit line otherwise]
 
 ## Frontend/Backend Separation
 [Decision + reasoning — or "staying monolithic, and why"]

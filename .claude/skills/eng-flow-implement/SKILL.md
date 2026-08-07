@@ -9,6 +9,7 @@ allowed-tools:
   - Edit
   - Bash
   - AskUserQuestion
+  - Agent
 triggers:
   - implement this task
   - implement the story
@@ -64,6 +65,8 @@ Adapted from `agent-skills`' `incremental-implementation` and `test-driven-devel
 2. **Load context** — read the actual files involved, and anything they depend on. Discover the repo's real test/build/lint commands first (package.json scripts, Makefile, CI config) rather than guessing.
 3. **Simplest thing that could work** — implement the smallest complete vertical slice for this task. No abstractions ahead of a second use case, no touching files outside this task's scope.
 4. **Test** — write a failing test for the expected behavior if the repo has a test setup (RED), then implement to pass it (GREEN). If the repo has no test framework, say so explicitly rather than skipping silently.
+
+   **If this is a bug-fix task** (Step 0.5's fix/ vs. feature/ judgment): before forming the fix, spawn a foreground `Agent` with only the bug description — not your own diagnosis or planned fix — to write the reproduction test independently. Adapted from `agent-skills`' `test-driven-development` (attribution: `docs/DECISIONS.md`): a test written by the same reasoning that's about to patch the bug tends to validate the patch, not the actual expected behavior. Verify the subagent's test fails against current code (RED), then implement the fix against it (GREEN).
 5. **Verify** — run the full test suite (regression check, not just the new test), run the build, run lint/typecheck if the stack has them.
 6. **Commit** — one task, one commit, descriptive message. Stage only the files this task touched plus the `tasks.md` checkbox update, not a blanket `git add -A`.
 7. **Check off the task** in `tasks.md`.

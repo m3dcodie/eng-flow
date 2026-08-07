@@ -8,6 +8,7 @@ allowed-tools:
   - Write
   - Bash
   - AskUserQuestion
+  - Agent
 triggers:
   - engineering review
   - review the architecture
@@ -22,7 +23,7 @@ Stage 3.5 of the production track, between Architecture and Epics/Stories/Tasks.
 
 ## Analytics
 
-At the start of every numbered step below (including Step 0), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-eng-review "<step name>" "<dated-slug>"`. As the last action of Step 5, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-eng-review "<dated-slug>"`. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
+At the start of every numbered step below (including Step 0), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-eng-review "<step name>" "<dated-slug>"`. As the last action of Step 6, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-eng-review "<dated-slug>"`. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
 
 ## Step 0 — Find the inputs
 
@@ -58,17 +59,31 @@ Apply these where relevant — not every pattern applies to every architecture, 
 
 ---
 
-## Step 3 — Interactive review, one issue at a time
+## Step 3 — Independent subagent review
 
-For each issue surfaced in Steps 1-2, call `AskUserQuestion` individually — one issue per call, never batched. For each: name the issue, ground it in the specific section/decision of `architecture.md` it's reacting to (quote or point to the relevant line — a finding that can't be tied to actual doc text doesn't get raised), state options, give an opinionated recommendation, explain why.
+Steps 1-2 ran in this conversation — often the same one that just wrote `architecture.md` in Stage 3. That's a self-review risk: the reasoning that produced a decision is the reasoning most likely to rubber-stamp it. Counter it with one blind pass.
 
-**Stop and wait for the user's answer before raising the next issue.** Don't assume the "obvious fix" and move on — every issue gets an explicit accept/change/reject from the user, same discipline as every other stage in this track.
+Spawn a single `Agent` call (foreground — its output feeds Step 4, so wait for it), general-purpose, with a prompt that gives it **only the file paths, not this conversation's context or Steps 1-2's findings**:
 
-If Step 1-2 turn up nothing worth raising, say so plainly — a clean pass is a valid outcome, don't manufacture issues to fill the step.
+> "Read `eng-flow/specs/<dated-slug>/spec.md`, `domain-model.md`, and `architecture.md`. You are an independent senior engineer reviewing this architecture — you have not seen any prior discussion of it and have no stake in the decisions. Evaluate: (1) component boundaries and coupling, (2) data flow bottlenecks and scaling, (3) security architecture, (4) failure modes per integration point, (5) hidden or accidental complexity, (6) whether the ADRs' 'alternatives considered' actually hold up. For each finding: what's wrong, severity, the `architecture.md` section it reacts to, and a fix."
+
+Adapted from gstack's `autoplan` dual-voice eng review (attribution: `docs/DECISIONS.md`) — without its Codex cross-check or consensus-table mechanics, since eng-flow has no second external reviewer and Step 4 already gets each finding an explicit human accept/change/reject.
+
+Merge the subagent's findings with Steps 1-2's into one list for Step 4, tagging each by source (`checklist` / `cognitive lens` / `independent review`). Drop exact duplicates, but keep two findings that reach the same conclusion by different reasoning — that agreement is itself informative.
 
 ---
 
-## Step 4 — Record the outcome
+## Step 4 — Interactive review, one issue at a time
+
+For each issue surfaced in Steps 1-3, call `AskUserQuestion` individually — one issue per call, never batched. For each: name the issue, note its source tag, ground it in the specific section/decision of `architecture.md` it's reacting to (quote or point to the relevant line — a finding that can't be tied to actual doc text doesn't get raised), state options, give an opinionated recommendation, explain why.
+
+**Stop and wait for the user's answer before raising the next issue.** Don't assume the "obvious fix" and move on — every issue gets an explicit accept/change/reject from the user, same discipline as every other stage in this track.
+
+If Steps 1-3 turn up nothing worth raising, say so plainly — a clean pass is a valid outcome, don't manufacture issues to fill the step.
+
+---
+
+## Step 5 — Record the outcome
 
 Write `eng-flow/specs/<dated-slug>/eng-review.md`:
 
@@ -79,6 +94,7 @@ Write `eng-flow/specs/<dated-slug>/eng-review.md`:
 ## Findings
 
 ### [Issue title]
+**Source:** [checklist | cognitive lens | independent review]
 **Section:** [architecture.md section/decision this reacts to]
 **Issue:** [what's wrong and why]
 **Resolution:** [Accepted — architecture.md updated | Changed — describe | Rejected — reason]
@@ -88,8 +104,8 @@ For any finding marked "Accepted" or "Changed," update `architecture.md` directl
 
 ---
 
-## Step 5 — Report back
+## Step 6 — Report back
 
 Summarize what was reviewed, what changed (if anything), and confirm `architecture.md` is up to date. Tell the user this feeds Stage 4 (epics/stories/tasks).
 
-Run the Step 5 analytics-finish call (see Analytics section above) before ending.
+Run the Step 6 analytics-finish call (see Analytics section above) before ending.

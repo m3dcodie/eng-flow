@@ -8,6 +8,7 @@ allowed-tools:
   - Write
   - Bash
   - AskUserQuestion
+  - Artifact
 triggers:
   - domain model
   - model the domain
@@ -59,11 +60,13 @@ User action → Domain A (does X) → Domain B (does Y) → outcome
 
 One diagram showing how the named domains/subsystems relate — a context map, not a deployment diagram. Boxes are domain names from Step 1 (e.g. "Checkout," "Inventory," "Billing"), arrows show which domain calls/depends on which. **Do not label boxes with technology** (no "Postgres," "React," "Lambda") — if a box needs a technology label to make sense, that's a sign the diagram has drifted into Stage 3's territory; pull it back to domain names only.
 
+Draft it as mermaid first — that's what goes in the saved file. Then ask once: "Want this rendered as a diagram you can actually see, or is the mermaid source in the saved file enough?" Default to skipping if the user doesn't ask. If yes, load the `artifact-diagramming` skill and publish via the `Artifact` tool; note the artifact URL alongside the saved diagram source in Step 6/7 so it isn't lost.
+
 ---
 
 ## Step 4 (optional) — Mockups / wireframes
 
-Ask: "Would a rough wireframe help validate any of these journeys?" Default: skip unless the user asks or a journey is genuinely hard to follow in text. If yes, keep it low-fidelity — boxes and labels showing flow and content, not visual design (no colors, no branding, no component library references).
+Ask: "Would a rough wireframe help validate any of these journeys?" Default: skip unless the user asks or a journey is genuinely hard to follow in text. If yes, keep it low-fidelity — boxes and labels showing flow and content, not visual design (no colors, no branding, no component library references). If produced, offer the same Artifact-rendering treatment as Step 3.
 
 ---
 
@@ -95,10 +98,11 @@ While modeling, gaps in the spec surface that weren't visible when it was pure p
 ## System Diagram
 
 [Conceptual diagram from Step 3 — domain names only, no tech]
+[Artifact URL, if rendered; omit line otherwise]
 
 ## Wireframes
 
-[If Step 4 ran; omit section otherwise]
+[If Step 4 ran; omit section otherwise. Artifact URL if rendered.]
 
 ## Open Questions From Modeling
 

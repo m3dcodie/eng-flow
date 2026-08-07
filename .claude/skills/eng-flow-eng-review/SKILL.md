@@ -25,6 +25,10 @@ Stage 3.5 of the production track, between Architecture and Epics/Stories/Tasks.
 
 At the start of every numbered step below (including Step 0), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-eng-review "<step name>" "<dated-slug>"`. As the last action of Step 6, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-eng-review "<dated-slug>"`. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
 
+## Decision Ledger
+
+Check `$ARGUMENTS` for a `--guide` token; if present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 6's report adds a "Decisions I made / decisions you made" summary. Log every decision point via `python3 .claude/skills/lib/bin/eng-flow-decision-log eng-flow-eng-review "<step>" <reason> <mode> <owner> "<description>" "<dated-slug>"`. See `eng-flow-spec`'s Decision Ledger section for the taxonomy and why. Rollup/analysis: `eng-flow-retro` Step 1 (Stage 9).
+
 ## Step 0 — Find the inputs
 
 Look for `eng-flow/specs/*/architecture.md` and the `domain-model.md` / `spec.md` in the same folder. If `architecture.md` is missing, tell the user to run Stage 3 first — there's nothing to review yet. If more than one spec folder exists, ask which one this run is for.
@@ -79,6 +83,8 @@ For each issue surfaced in Steps 1-3, call `AskUserQuestion` individually — on
 
 **Stop and wait for the user's answer before raising the next issue.** Don't assume the "obvious fix" and move on — every issue gets an explicit accept/change/reject from the user, same discipline as every other stage in this track.
 
+Log each: `risk open_question <user_confirmed|user_revised> "issue '<title>': accepted|changed|rejected"`.
+
 If Steps 1-3 turn up nothing worth raising, say so plainly — a clean pass is a valid outcome, don't manufacture issues to fill the step.
 
 ---
@@ -107,5 +113,7 @@ For any finding marked "Accepted" or "Changed," update `architecture.md` directl
 ## Step 6 — Report back
 
 Summarize what was reviewed, what changed (if anything), and confirm `architecture.md` is up to date. Tell the user this feeds Stage 4 (epics/stories/tasks).
+
+If this run was in guide mode, add a "Decisions I made / decisions you made" summary here, drawn from this run's `eng-flow-decision-log` calls.
 
 Run the Step 6 analytics-finish call (see Analytics section above) before ending.

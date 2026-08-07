@@ -26,6 +26,10 @@ Stage 3 of the production track. Everything Stage 1 and Stage 2 deferred — tec
 
 At the start of every numbered step below (including Step 0), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-architecture "<step name>" "<dated-slug>"`. As the last action of Step 10, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-architecture "<dated-slug>"`. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
 
+## Decision Ledger
+
+Check `$ARGUMENTS` for a `--guide` token; if present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 10's report adds a "Decisions I made / decisions you made" summary. Log every decision point via `python3 .claude/skills/lib/bin/eng-flow-decision-log eng-flow-architecture "<step>" <reason> <mode> <owner> "<description>" "<dated-slug>"`. See `eng-flow-spec`'s Decision Ledger section for the taxonomy and why. Rollup/analysis: `eng-flow-retro` Step 1 (Stage 9).
+
 ## Step 0 — Find the inputs
 
 Look for `eng-flow/specs/*/spec.md` and the matching `domain-model.md` in the same folder. If more than one spec folder exists, ask which one this run is for.
@@ -44,6 +48,8 @@ If this extends an existing product, use its existing stack — don't relitigate
 
 Apply **boring by default**: prefer proven, well-understood technology unless there's a specific, stated reason not to. If the user picks something novel/unproven, ask them to name the reason explicitly (it becomes part of the ADR in Step 7) — an unjustified novel choice is a flag to raise, not silently accept.
 
+Log it: `risk silent_decide ai_default "tech stack: reused existing / boring-by-default choice"` if no relitigation was needed, otherwise `risk open_question user_confirmed "tech stack: <choice> — reason: <stated reason>"`.
+
 ---
 
 ## Step 2 — System diagram
@@ -52,11 +58,15 @@ Take Stage 2's conceptual diagram (domain boxes, no tech) and promote it to a **
 
 Draft it as mermaid first — that's what goes in the saved file. Then ask once: "Want this rendered as a diagram you can actually see, or is the mermaid source in the saved file enough?" Default to skipping if the user doesn't ask. If yes, load the `artifact-diagramming` skill and publish via the `Artifact` tool; note the artifact URL alongside the saved diagram source in Step 8/9.
 
+Log it: `risk silent_decide ai_default "diagram rendering: skipped, mermaid source only"` if the default applies, otherwise `open_question user_confirmed`.
+
 ---
 
 ## Step 3 — Frontend/backend separation
 
 Decide based on the actual complexity surfaced in Stage 2 — number of domains, their coupling, team size — not by default. If scope is small, say so and recommend staying monolithic; splitting into separate frontend/backend (or further into services) is a decision to justify, not a default to assume. If it does split, name the boundary explicitly (what runs where).
+
+Log it: `risk silent_decide ai_inferred "frontend/backend separation: <monolith|split> — <reasoning from Stage 2 complexity>"`.
 
 ---
 
@@ -84,6 +94,8 @@ Stage 1 captured NFRs at the business level ("fast," "secure," "available") — 
 
 Ask for numbers if the spec didn't give any. If none are available and the user doesn't have a target in mind, state the assumption explicitly rather than inventing a number silently.
 
+Log it: `risk silent_decide ai_default "NFR target for <dimension>: assumed <value> — no user-provided number"` for each assumed target — this is exactly the kind of silent default `eng-flow-retro` should be watching for correlation against later rework.
+
 ---
 
 ## Step 6 — Deployment
@@ -92,6 +104,8 @@ Default to what the user actually does, not an assumed cloud target: local devel
 
 Add a short **cloud-ready notes** subsection: what would need to change to deploy this to a cloud target later (which components would need it, roughly what'd be involved) — informational, not a decision to act on now. This is what makes the doc useful to another engineer picking this up later without forcing a cloud decision that isn't warranted yet.
 
+Log it: `risk silent_decide ai_inferred "deployment topology: matched actual practice (<local/containers/GitHub>)"`.
+
 ---
 
 ## Step 7 — ADRs
@@ -99,6 +113,8 @@ Add a short **cloud-ready notes** subsection: what would need to change to deplo
 Reuse `agent-skills`' convention rule: **before creating an ADR, check for an existing convention in the repo** (an `adr/` or `docs/decisions/` directory, an `.adr-dir` file, existing numbered ADRs) and match its location, numbering, and section headings. Only apply the default below if no convention exists.
 
 Write one ADR per decision from Steps 1-6 that would be expensive to reverse — framework/library choice, data model, auth strategy, API architecture style, deployment/hosting choice. Not every small choice needs one; a Step 1 "boring by default" pick with an obvious reason usually doesn't.
+
+Log it: `risk silent_decide ai_inferred "ADR convention: <matched existing repo convention | applied default location/numbering>"`.
 
 Default (no existing convention found): `eng-flow/specs/<dated-slug>/adr/NNNN-title.md`, sequential numbering starting at `0001`:
 
@@ -153,7 +169,7 @@ Accepted
 [List of ADR files written in Step 7, or "none warranted" if genuinely none]
 ```
 
-Show the draft, ask: "Does this match what you'd actually build, or anything to change?"
+Show the draft, ask: "Does this match what you'd actually build, or anything to change?" Log it: `risk open_question <user_confirmed|user_revised> "draft accepted|draft revised: <what changed>"`.
 
 ---
 
@@ -166,5 +182,7 @@ Write `architecture.md` to the same spec folder (`eng-flow/specs/<dated-slug>/ar
 ## Step 10 — Report back
 
 Confirm the saved paths. Tell the user this feeds Stage 4 (epics/stories/tasks — breaking this into executable work), not yet run.
+
+If this run was in guide mode, add a "Decisions I made / decisions you made" summary here, drawn from this run's `eng-flow-decision-log` calls.
 
 Run the Step 10 analytics-finish call (see Analytics section above) before ending.

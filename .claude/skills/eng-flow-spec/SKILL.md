@@ -28,9 +28,21 @@ Turns a rough idea, an already-approved product/feature, or a new story into a s
 
 At the start of every numbered step below (including Step 0), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-spec "<step name>" "<dated-slug-if-known>"`. As the last action of Step 8, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-spec "<dated-slug>"`. Logs time and token usage per step, incrementally, to `eng-flow/analytics.jsonl` — a killed terminal or restart loses at most the in-flight step, not the whole run. Degrades silently if unavailable; never blocks real work. Rollup: `eng-flow-analytics` (Stage 10).
 
+## Decision Ledger
+
+**Guide mode:** check `$ARGUMENTS` for a `--guide` token before treating the remainder as the topic (strip it out either way). When present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 8's report adds a "Decisions I made / decisions you made" summary before saving.
+
+**Logging:** at each decision point below, run `python3 .claude/skills/lib/bin/eng-flow-decision-log eng-flow-spec "<step name>" <reason> <mode> <owner> "<description>" "<dated-slug-if-known>"` — guide mode or not, every decision point gets logged; the flag only changes whether it's surfaced live.
+
+- `reason` — why this was routed the way it was: `risk` (getting it wrong is costly or hard to reverse downstream) | `knowledge_asymmetry` (stakeholder/customer context the AI can't infer) | `stated_preference` (the user has told the assistant they want to be asked about this category)
+- `mode` — how it was handled: `silent_decide` | `surface_existing` (pull real candidates from what already exists — brand guide, prior spec, existing pattern — never invent) | `generate_options` (synthesize novel candidates; only on explicit user request or when nothing exists to surface) | `open_question` | `must_escalate`
+- `owner` — what actually happened this run: `ai_default` | `ai_inferred` | `user_confirmed` | `user_revised` | `user_delegated`
+
+Appends to `eng-flow/decisions.jsonl`, same degrade-silently discipline as analytics — never blocks real work. Every other eng-flow skill's Decision Ledger section points back here for the taxonomy and just logs calls at its own decision points. Consumed by `eng-flow-retro` (Stage 9) Step 1, which cross-references `ai_default`/`ai_inferred` entries against later friction to tell whether a routing default is actually working or needs promoting to `must_escalate`.
+
 ## Step 0 — Topic and routing
 
-`$ARGUMENTS` is the rough topic. If empty, ask: "What are we speccing?"
+`$ARGUMENTS` is the rough topic — strip a leading/trailing `--guide` token first (see Decision Ledger above) before treating the remainder as the topic. If empty, ask: "What are we speccing?"
 
 Then ask the routing question — this determines everything downstream, so don't skip or infer it silently:
 
@@ -42,6 +54,8 @@ Offer three paths via `AskUserQuestion`:
 - **Feature/story in an existing product** — domain model and architecture already exist, this extends them
 
 The path chosen governs which steps below run. Do not let "this looks like a startup idea" or "this looks big" substitute for actually asking — greenlit enterprise work and solo weekend ideas can look identical from the topic string alone.
+
+Log it: `eng-flow-decision-log eng-flow-spec "Step 0" risk open_question user_confirmed "routing path: <path chosen>" "<dated-slug-if-known>"` — wrong routing here cascades into every downstream step, so this is always an explicit ask, guide mode or not.
 
 ---
 
@@ -110,6 +124,8 @@ Other paths skip this entirely — there's no code yet, and asking technical que
 
 Ask once: "Want competitor analysis? If so, give me names, text, or URLs to start from — I won't go searching blind." Default: no, if the user doesn't raise it.
 
+Log it: `eng-flow-decision-log eng-flow-spec "Step 5" risk silent_decide ai_default "competitor research: skipped, not raised by user" "<dated-slug>"` if the default applies (in guide mode, ask explicitly instead and log `open_question`/`user_confirmed`).
+
 If yes:
 - **Seed-only intake.** Only research what the user named. Never independently discover competitors via open search.
 - **Level 1 (default, once opted in):** one fetch/search per named competitor. Shallow summary only — what it does, pricing if visible, one differentiator. If a seed doesn't resolve directly, one fallback search max — needing several searches to resolve one seed means the input was too vague, ask the user to clarify rather than searching harder.
@@ -171,6 +187,8 @@ Draft using the shape appropriate to the path:
 
 Show the draft, ask: "Does this accurately capture it, or anything to change?"
 
+Log it: `eng-flow-decision-log eng-flow-spec "Step 6" risk open_question <user_confirmed|user_revised> "draft accepted as-is|draft revised: <what changed>" "<dated-slug>"`.
+
 Quick manual check before saving: skim for anything that looks like a secret, credential, internal URL, or PII. If something looks off, flag it and ask before continuing — don't save it silently.
 
 ---
@@ -194,5 +212,7 @@ Write the spec to `eng-flow/specs/<dated-slug>/spec.md`, and `competitor-analysi
 Tell the user the saved path, and what's next:
 - **MVP path:** ready to build — capture a flat task checklist and go, no formal breakdown needed.
 - **Production path** (already-approved, or a validated idea past a scope threshold): note this spec is Stage 1 of the production track; domain modeling is Stage 2, not yet run.
+
+If this run was in guide mode (Decision Ledger section), add a short "Decisions I made / decisions you made" summary here, drawn from this run's `eng-flow-decision-log` calls, before the report is considered done.
 
 Run the Step 8 analytics-finish call (see Analytics section above) before ending.

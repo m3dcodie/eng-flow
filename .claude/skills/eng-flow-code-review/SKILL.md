@@ -25,15 +25,19 @@ Stage 6 of the production track. Reviews the actual diff produced by Stage 5's i
 
 At the start of every step below (including Step 0), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-code-review "<step name>" "<story-slug>"`. As the last action of Step 7, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-code-review "<story-slug>"`. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
 
+## Decision Ledger
+
+Check `$ARGUMENTS` for a `--guide` token; if present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 7's report adds a "Decisions I made / decisions you made" summary. Log every decision point via `python3 .claude/skills/lib/bin/eng-flow-decision-log eng-flow-code-review "<step>" <reason> <mode> <owner> "<description>" "<story-slug>"`. See `eng-flow-spec`'s Decision Ledger section for the taxonomy and why. Rollup/analysis: `eng-flow-retro` Step 1 (Stage 9).
+
 ## Step 0 — Scope
 
-Default to the current branch's diff against its base branch. If that's ambiguous (detached HEAD, no clear base, or the user named something specific — a story, a file, a commit range), ask via `AskUserQuestion` rather than guessing.
+Default to the current branch's diff against its base branch. If that's ambiguous (detached HEAD, no clear base, or the user named something specific — a story, a file, a commit range), ask via `AskUserQuestion` rather than guessing. Log it: `risk <silent_decide|open_question> <ai_default|user_confirmed> "scope: <what was reviewed>"`.
 
 ---
 
 ## Step 1 — Context
 
-Find the story this diff implements (`eng-flow/backlog/stories/<story-slug>.md` and its `tasks.md`, if one exists). Read the acceptance criteria — review is grounded in what was supposed to happen, not a vibe check. If no story/task exists for this diff, proceed without it, but say so in the report.
+Find the story this diff implements (`eng-flow/backlog/stories/<story-slug>.md` and its `tasks.md`, if one exists). Read the acceptance criteria — review is grounded in what was supposed to happen, not a vibe check. If no story/task exists for this diff, proceed without it, but say so in the report. Log it: `risk silent_decide ai_default "no story found for this diff — reviewed without acceptance-criteria grounding"` when that applies.
 
 ---
 
@@ -69,7 +73,7 @@ Step 3 ran in this conversation — often the same one that wrote the diff. Coun
 
 > "Read the diff for `<scope from Step 0>` (`git diff <base>...HEAD` or equivalent). You are an independent senior engineer reviewing this — you have not seen any prior review and have no stake in the code. Find what a structured checklist review would miss: assumptions that don't hold, interactions between changed files, error paths that look handled but aren't, anything that works in the demo path but not the edge case. For each finding: what's wrong, severity, file:line, and the fix."
 
-**Conditionally** — one security-specialist subagent, only if the diff touches auth, payments, secrets, PII, data access, or config/session handling. Skip it and say why if the diff clearly doesn't. Prompt adapted from `agent-skills`' `security-auditor` persona (attribution: `docs/DECISIONS.md`), scoped to this diff:
+**Conditionally** — one security-specialist subagent, only if the diff touches auth, payments, secrets, PII, data access, or config/session handling. Skip it and say why if the diff clearly doesn't. Log it: `risk silent_decide ai_inferred "security subagent: <dispatched | skipped — reason>"`. Prompt adapted from `agent-skills`' `security-auditor` persona (attribution: `docs/DECISIONS.md`), scoped to this diff:
 
 > "Read the diff for `<scope from Step 0>`. You are a security engineer conducting a focused audit. Check: input validation at boundaries, injection vectors, auth/authz on every changed endpoint, secrets in code/logs, encryption in transit/at rest where relevant, IDOR (can a user reach another user's data through this change). Map findings to OWASP Top 10 where relevant. For each: severity (Critical/High/Medium/Low/Info), file:line, exploit scenario for Critical/High, and the fix."
 
@@ -95,11 +99,13 @@ Lead with what matters — correctness and security first. Don't bury a real Cri
 
 For each Critical or Required finding, state the issue, its source tag, the recommendation, and why — then stop and wait for the user's explicit response before raising the next one, same discipline as every other eng-flow stage. Don't assume the obvious fix and move on.
 
+Log each: `risk must_escalate user_confirmed "[<severity>] <title>: <resolution>"` — Critical/Required findings are always `must_escalate`, guide mode or not.
+
 ---
 
 ## Step 5 — Dead code check
 
-If the diff leaves anything orphaned (a function/component/constant nothing calls anymore), list it explicitly and ask before removing it — don't delete silently, don't leave it lying around unmentioned either.
+If the diff leaves anything orphaned (a function/component/constant nothing calls anymore), list it explicitly and ask before removing it — don't delete silently, don't leave it lying around unmentioned either. Log it: `risk open_question user_confirmed "orphaned code '<name>': removed|kept"` when anything's found.
 
 ---
 
@@ -133,5 +139,7 @@ Write findings to `eng-flow/backlog/stories/<story-slug>/code-review.md` (or, if
 ```
 
 Report the verdict and a summary of what was fixed vs. deferred.
+
+If this run was in guide mode, add a "Decisions I made / decisions you made" summary here, drawn from this run's `eng-flow-decision-log` calls.
 
 Run the Step 7 analytics-finish call (see Analytics section above) before ending.

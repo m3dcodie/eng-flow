@@ -228,6 +228,21 @@ Every stage above (1 through 9) logs its own time and token usage, incrementally
 
 Token counts come from Claude Code's own session transcript (`$CLAUDE_CODE_SESSION_ID`), which carries real per-turn usage data — not something gstack or agent-skills does. Degrades to time-only if unavailable; never blocks the actual work.
 
+### Decision Ledger (cross-cutting, not a sequential stage)
+
+Every stage above logs each judgment call it makes — not just risky/irreversible ones (already gated elsewhere), but anywhere the AI decides something the user might reasonably have wanted a say in. Logged via `eng-flow-decision-log`, shared script under `.claude/skills/lib/bin/`, appending to project-level `eng-flow/decisions.jsonl`. Full taxonomy lives in `eng-flow-spec`'s Decision Ledger section (canonical copy); every other skill's own section is a short pointer back to it.
+
+Three fields per entry:
+- **reason** — why this was routed the way it was: `risk` (costly or hard to reverse downstream) | `knowledge_asymmetry` (stakeholder/customer context the AI structurally can't infer — e.g. a color scheme) | `stated_preference` (the user's told the assistant they want to be asked about this category)
+- **mode** — how it was handled: `silent_decide` | `surface_existing` (pull real candidates from what already exists — never invent when something real can be surfaced instead) | `generate_options` (synthesize novel candidates — only on explicit request or when nothing exists to surface) | `open_question` | `must_escalate`
+- **owner** — what actually happened this run: `ai_default` | `ai_inferred` | `user_confirmed` | `user_revised` | `user_delegated`
+
+**Guide mode:** any skill invocation carrying a `--guide` token in `$ARGUMENTS` raises every decision point in that run to an explicit `AskUserQuestion` instead of a silent default, and closes with a "Decisions I made / decisions you made" summary. Without it, skills behave exactly as documented per-stage above — the flag only changes whether a decision is surfaced live, not whether it's logged.
+
+**Closing the loop:** a ledger nobody reads is dead weight, same principle `learnings.md` already runs on. Stage 9 (`eng-flow-retro`) is the consumer — its Step 1 reads `decisions.jsonl` back and cross-references `ai_default`/`ai_inferred` entries against friction found elsewhere (rework, code-review findings, QA bugs). A correlation is the evidence to promote that decision point to `must_escalate` by default, rather than a permanent, never-revisited categorization.
+
+No dedicated rollup skill yet (unlike Analytics' Stage 10) — one can be added once real `decisions.jsonl` data exists to design a report format against.
+
 ### Stage 10 — Analytics
 
 Read-only, on-demand. Skill: `.claude/skills/eng-flow-analytics/SKILL.md`.

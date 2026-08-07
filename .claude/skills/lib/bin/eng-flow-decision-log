@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+"""
+eng-flow decision ledger: log one decision point.
+
+Called at each judgment call / decision point inside an eng-flow skill --
+a point-in-time event, not a duration, so (unlike the analytics
+checkpoint/finish pair) this is a single append, no marker or
+crash-recovery state needed.
+
+Usage: eng-flow-decision-log <skill> <step-label> <reason> <mode> <owner> <description> [story-slug]
+
+  reason      why this was routed the way it was:
+              risk | knowledge_asymmetry | stated_preference
+  mode        how it was handled:
+              silent_decide | surface_existing | generate_options |
+              open_question | must_escalate
+  owner       what actually happened this run:
+              ai_default | ai_inferred | user_confirmed | user_revised |
+              user_delegated
+  description one line, free text
+
+Unrecognized enum values are logged as-is rather than rejected -- this
+must never block the calling skill's real work over a typo.
+"""
+import json
+import os
+import sys
+import time
+
+
+def iso(ts):
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(ts))
+
+
+def main():
+    if len(sys.argv) < 6:
+        print(
+            "usage: eng-flow-decision-log <skill> <step-label> <reason> <mode> <owner> <description> [story-slug]",
+            file=sys.stderr,
+        )
+        return 0  # never block the calling skill over a usage error
+
+    skill, step, reason, mode, owner, description = sys.argv[1:7]
+    story = sys.argv[7] if len(sys.argv) > 7 else None
+
+    row = {
+        "ts": iso(time.time()),
+        "skill": skill,
+        "step": step,
+        "story": story,
+        "reason": reason,
+        "mode": mode,
+        "owner": owner,
+        "description": description,
+    }
+
+    root = os.getcwd()
+    log_path = os.path.join(root, "eng-flow", "decisions.jsonl")
+    try:
+        os.makedirs(os.path.dirname(log_path), exist_ok=True)
+        with open(log_path, "a") as f:
+            f.write(json.dumps(row) + "\n")
+    except OSError:
+        pass  # degrade silently -- the ledger must never block real work
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -24,11 +24,15 @@ Stage 2 of the production track. Translates a spec's plain-language requirements
 
 At the start of every numbered step below (including Step 0), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-domain-model "<step name>" "<dated-slug>"`. As the last action of Step 8, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-domain-model "<dated-slug>"`. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
 
+## Decision Ledger
+
+Check `$ARGUMENTS` for a `--guide` token; if present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 8's report adds a "Decisions I made / decisions you made" summary. Log every decision point via `python3 .claude/skills/lib/bin/eng-flow-decision-log eng-flow-domain-model "<step>" <reason> <mode> <owner> "<description>" "<dated-slug>"`. See `eng-flow-spec`'s Decision Ledger section for the taxonomy and why. Rollup/analysis: `eng-flow-retro` Step 1 (Stage 9).
+
 ## Step 0 — Find the spec
 
 Look for `eng-flow/specs/*/spec.md`. If none exist, tell the user to run `eng-flow-spec` first — this stage has nothing to model without one. If more than one exists, ask which spec this run is for. If exactly one, use it.
 
-Read the spec's **Domains Touched** list and **User Journeys** — these are the inputs to everything below. If the spec has no domains list (e.g. it used the lightweight feature/story template), ask the user directly: "Which domains/functional areas does this touch?"
+Read the spec's **Domains Touched** list and **User Journeys** — these are the inputs to everything below. If the spec has no domains list (e.g. it used the lightweight feature/story template), ask the user directly: "Which domains/functional areas does this touch?" Log it: `risk open_question user_confirmed "domains list: <what was named>"`.
 
 ---
 
@@ -42,11 +46,15 @@ For each domain named in the spec, ask (don't invent):
 
 Keep this at the conceptual level: entity names, relationships, cardinality if it's non-obvious. No fields, no types, no persistence — that's implementation, not modeling.
 
+Log it: `knowledge_asymmetry open_question user_confirmed "domain '<name>': entities/relationships/language conflicts"` — the business's own vocabulary for its entities isn't something the AI can infer, it has to be asked per domain.
+
 ---
 
 ## Step 2 — Data flow
 
 Using the spec's user journeys and functional requirements: for each journey, trace which domains it touches and in what order. Ask the user to confirm or correct the sequence rather than asserting it — the spec describes user-facing behavior, not internal flow, so this is genuinely new information, not a restatement.
+
+Log it: `risk open_question <user_confirmed|user_revised> "journey '<name>' flow: <domain sequence>"`.
 
 Represent as a simple flow list or diagram (mermaid `flowchart` is fine if the host renders it, otherwise plain ordered steps):
 
@@ -62,17 +70,23 @@ One diagram showing how the named domains/subsystems relate — a context map, n
 
 Draft it as mermaid first — that's what goes in the saved file. Then ask once: "Want this rendered as a diagram you can actually see, or is the mermaid source in the saved file enough?" Default to skipping if the user doesn't ask. If yes, load the `artifact-diagramming` skill and publish via the `Artifact` tool; note the artifact URL alongside the saved diagram source in Step 6/7 so it isn't lost.
 
+Log it: `risk silent_decide ai_default "diagram rendering: skipped, mermaid source only"` if the default applies, otherwise `open_question user_confirmed`.
+
 ---
 
 ## Step 4 (optional) — Mockups / wireframes
 
 Ask: "Would a rough wireframe help validate any of these journeys?" Default: skip unless the user asks or a journey is genuinely hard to follow in text. If yes, keep it low-fidelity — boxes and labels showing flow and content, not visual design (no colors, no branding, no component library references). If produced, offer the same Artifact-rendering treatment as Step 3.
 
+Log it: `risk silent_decide ai_default "wireframes: skipped"` if the default applies, otherwise `open_question user_confirmed`.
+
 ---
 
 ## Step 5 — Refinement Q&A
 
 While modeling, gaps in the spec surface that weren't visible when it was pure prose — e.g. "the spec's journey says a user cancels an order, but doesn't say what happens to reserved inventory." Collect these as explicit questions, ask the user, and note the answer here rather than silently amending the spec file itself (the spec stays the record of what was agreed at Stage 1; this stage's answers extend it, they don't retroactively rewrite it).
+
+Log each gap: `risk open_question user_confirmed "spec gap: <question> → <answer>"`.
 
 ---
 
@@ -109,7 +123,7 @@ While modeling, gaps in the spec surface that weren't visible when it was pure p
 [Step 5 gaps + answers, or "none surfaced" if genuinely none]
 ```
 
-Show the draft, ask: "Does this match how you think about the domains, or anything to correct?"
+Show the draft, ask: "Does this match how you think about the domains, or anything to correct?" Log it: `risk open_question <user_confirmed|user_revised> "draft accepted|draft revised: <what changed>"`.
 
 ---
 
@@ -122,5 +136,7 @@ Write to the same spec's folder: `eng-flow/specs/<dated-slug>/domain-model.md`.
 ## Step 8 — Report back
 
 Confirm the saved path. Tell the user this feeds Stage 3 (architecture — tech stack, deployment, API shape), not yet run.
+
+If this run was in guide mode, add a "Decisions I made / decisions you made" summary here, drawn from this run's `eng-flow-decision-log` calls.
 
 Run the Step 8 analytics-finish call (see Analytics section above) before ending.

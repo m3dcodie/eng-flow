@@ -26,6 +26,10 @@ Stage 4 of the production track. Unlike Stages 1-3, output here is **project-lev
 
 At the start of every numbered step in Steps 0-6 (including Step 0), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-epics-stories-tasks "<step name>" "<dated-slug>"`. As the last action of Step 6, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-epics-stories-tasks "<dated-slug>"`. Step 7 is a separate invocation and gets its own analytics calls — see its own note below. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
 
+## Decision Ledger
+
+Check `$ARGUMENTS` for a `--guide` token; if present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 6's report (Step 7's own report for the breakdown run) adds a "Decisions I made / decisions you made" summary. Log every decision point via `python3 .claude/skills/lib/bin/eng-flow-decision-log eng-flow-epics-stories-tasks "<step>" <reason> <mode> <owner> "<description>" "<dated-slug>"` (use `eng-flow-epics-stories-tasks-breakdown` as the skill name for Step 7's own calls, matching its separate analytics tag). See `eng-flow-spec`'s Decision Ledger section for the taxonomy and why. Rollup/analysis: `eng-flow-retro` Step 1 (Stage 9).
+
 ## Step 0 — Find the inputs
 
 Locate the spec folder this run is for (`eng-flow/specs/<dated-slug>/`, containing `spec.md`, `domain-model.md`, `architecture.md`). If any are missing, tell the user which stage to run first.
@@ -42,6 +46,8 @@ Candidates come from two places, cross-referenced:
 
 Present the candidate epic list to the user and ask them to confirm, merge, or split — don't finalize silently. An epic should represent a real outcome ("users can complete checkout end-to-end"), not just restate a domain name.
 
+Log it: `risk open_question <user_confirmed|user_revised> "epics: <confirmed as-is|merged/split: how>"`.
+
 For each confirmed epic, capture: name, outcome/goal (what value this delivers, not what gets built), source spec reference, linked domains.
 
 ---
@@ -52,6 +58,8 @@ Walk the spec's **user journeys** — each journey, or each meaningful step with
 
 Size against the **1-3 day completable** bar (a story too big for that is really two stories — split it now, don't defer the problem). Ask the user to confirm the split rather than asserting it.
 
+Log it: `risk open_question <user_confirmed|user_revised> "story '<name>' sizing: <accepted|split: how>"`.
+
 For each story, write acceptance criteria — specific, testable conditions, not "works correctly."
 
 ---
@@ -59,6 +67,8 @@ For each story, write acceptance criteria — specific, testable conditions, not
 ## Step 3 — Cross-check against architecture
 
 For each story, check the architecture's system diagram and API contracts: does this story touch two or more independently-diagrammed subsystems? If so, flag it — either as a candidate to split further, or, if it genuinely can't be split, as a coordination note (which subsystems, what the dependency is) so it isn't picked up assuming it's a single-subsystem change.
+
+Log flagged stories: `risk silent_decide ai_inferred "story '<name>' spans 2+ subsystems: <split candidate | coordination note>"`.
 
 ---
 
@@ -113,13 +123,15 @@ Spec: eng-flow/specs/<dated-slug>/spec.md
 [Subsystems touched; coordination note if it spans 2+ from Step 3, else "single subsystem"]
 ```
 
-Write files, don't overwrite existing epics/stories from prior runs — if this run's proposals overlap an existing epic/story, ask the user whether to update it or add a new one.
+Write files, don't overwrite existing epics/stories from prior runs — if this run's proposals overlap an existing epic/story, ask the user whether to update it or add a new one. Log overlaps: `risk open_question user_confirmed "'<slug>' overlaps existing: <updated|added new>"`.
 
 ---
 
 ## Step 6 — Report back
 
 List the epics and stories created (or updated). Tell the user tasks are separate: "say 'break story `<slug>` into tasks' when you're ready to implement it" — don't generate tasks for the whole backlog now.
+
+If this run was in guide mode, add a "Decisions I made / decisions you made" summary here, drawn from this run's `eng-flow-decision-log` calls.
 
 Run the Step 6 analytics-finish call (see Analytics section above) before ending.
 
@@ -137,6 +149,8 @@ Break the story into tasks:
 - **Size each task**: XS (1 file) / S (1-2 files) / M (3-5 files) / L (5-8 files, consider splitting) / XL (8+ files — break it down further, don't leave it XL).
 - **Split further if**: it'd take more than ~2 hours of focused work, acceptance criteria needs more than 3 bullets to state, it touches 2+ independent subsystems, or the task title has "and" in it.
 - **Checkpoint** every 2-3 tasks: tests pass, build succeeds, core flow works end-to-end.
+
+Log the sizing/splitting pass: `eng-flow-decision-log eng-flow-epics-stories-tasks-breakdown "task breakdown" risk silent_decide ai_inferred "story '<slug>': <N> tasks, split per size/dependency rules" "<story-slug>"`.
 
 Task template:
 ```markdown

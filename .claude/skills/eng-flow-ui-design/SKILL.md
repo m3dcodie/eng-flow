@@ -26,6 +26,12 @@ Stage 3.6 of the production track, between Engineering Review and Epics/Stories/
 
 At the start of every numbered step below (including Step 0), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-ui-design "<step name>" "<dated-slug>"`. As the last action of Step 7, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-ui-design "<dated-slug>"`. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
 
+## Decision Ledger
+
+Check `$ARGUMENTS` for a `--guide` token; if present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 7's report adds a "Decisions I made / decisions you made" summary. Log every decision point via `python3 .claude/skills/lib/bin/eng-flow-decision-log eng-flow-ui-design "<step>" <reason> <mode> <owner> "<description>" "<dated-slug>"`. See `eng-flow-spec`'s Decision Ledger section for the taxonomy and why. Rollup/analysis: `eng-flow-retro` Step 1 (Stage 9).
+
+Step 1's aesthetic-direction decision is this skill's clearest **`knowledge_asymmetry`** case (stakeholder/customer/brand context the AI can't infer) — see that step for the specific mode logic.
+
 ## Step 0 — Find the inputs, check the trigger
 
 Look for `eng-flow/specs/*/spec.md`, `domain-model.md`, and `architecture.md` in the same folder. If any are missing, tell the user which stage to run first. If more than one spec folder exists, ask which one this run is for.
@@ -40,8 +46,8 @@ If domain-model.md has an optional Step 4 wireframe section, note it — Step 2 
 
 Check for `eng-flow/design-system.md` at the project root — this is project-level, like `eng-flow/backlog/`, not per-spec: it should outlive any one spec and get reused, not rebuilt each run.
 
-- **If it exists:** read it, state that this run is reusing it rather than relitigating it (same "boring by default" discipline `eng-flow-architecture` Step 1 applies to tech stack), and skip to Step 2. Only revisit it if the current spec's journeys genuinely can't be served by it — ask the user to confirm before changing a project-level artifact other specs may already depend on.
-- **If it doesn't exist:** ask the user for the aesthetic direction — typography, color, spacing, motion, tone. If they name a concrete reference (a product, a URL, "make it feel like X"), bounded research applies: one fetch per named reference, propose findings, don't bulk-expand without the user asking (same rules as Stage 1's competitor-analysis sub-step in `PROCESS.md`). Never open-ended "go find inspiration" discovery.
+- **If it exists:** read it, state that this run is reusing it rather than relitigating it (same "boring by default" discipline `eng-flow-architecture` Step 1 applies to tech stack), and skip to Step 2. Only revisit it if the current spec's journeys genuinely can't be served by it — ask the user to confirm before changing a project-level artifact other specs may already depend on. Log it: `risk silent_decide ai_default "design system: reused existing, no relitigation"`.
+- **If it doesn't exist:** before asking anything, check for material that's already real and surfaceable — a brand guide, prior mockups, an existing style guide elsewhere in the repo. If something surfaceable exists, present it as candidates rather than asking blind (`knowledge_asymmetry surface_existing user_confirmed`). If nothing exists to surface, ask the user for the aesthetic direction — typography, color, spacing, motion, tone (`knowledge_asymmetry open_question user_confirmed`). If they name a concrete reference (a product, a URL, "make it feel like X"), bounded research applies: one fetch per named reference, propose findings, don't bulk-expand without the user asking (same rules as Stage 1's competitor-analysis sub-step in `PROCESS.md`). Never open-ended "go find inspiration" discovery. Only synthesize novel candidates from scratch (`generate_options`) if the user explicitly asks for options — this is invention, not retrieval, and costs more to get wrong.
 
 ---
 
@@ -71,6 +77,8 @@ For each journey's wireframe, call `AskUserQuestion` one dimension at a time —
 
 Score each 0–10, explain what a 10 looks like, revise the wireframe to close the gap, then move to the next dimension. **Stop and wait for the user's answer before raising the next dimension.** A journey is "gated" only once the user explicitly approves it — that's what unlocks Step 4 for that journey specifically; ungated journeys stay markdown-only and are reported as such in Step 6.
 
+Log each dimension: `risk open_question <user_confirmed|user_revised> "journey '<name>' <dimension>: score <N>/10"`.
+
 ---
 
 ## Step 4 — Promote gated wireframes to HTML/CSS
@@ -98,5 +106,7 @@ Show a summary: the design system (new or reused), each journey with its gate st
 ## Step 7 — Report back
 
 Confirm the saved paths and which journeys are gated vs. still markdown-only. Tell the user this feeds Stage 4 (UI-touching stories get acceptance criteria grounded in the approved wireframe/mockup) and Stage 5 (implementation builds against the mockup instead of improvising layout).
+
+If this run was in guide mode, add a "Decisions I made / decisions you made" summary here, drawn from this run's `eng-flow-decision-log` calls.
 
 Run the Step 7 analytics-finish call (see Analytics section above) before ending.

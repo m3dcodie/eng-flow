@@ -27,11 +27,15 @@ Stage 5 of the production track, terminal — consumes a story's `tasks.md` (fro
 
 At the start of every step below (including Step 0 and Step 0.5), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-implement "<step name>" "<story-slug>"`. As the last action of Step 5, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-implement "<story-slug>"`. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
 
+## Decision Ledger
+
+Check `$ARGUMENTS` for a `--guide` token; if present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 5's report adds a "Decisions I made / decisions you made" summary. Log every decision point via `python3 .claude/skills/lib/bin/eng-flow-decision-log eng-flow-implement "<step>" <reason> <mode> <owner> "<description>" "<story-slug>"`. See `eng-flow-spec`'s Decision Ledger section for the taxonomy and why. Rollup/analysis: `eng-flow-retro` Step 1 (Stage 9) — this is the skill where a silently-defaulted decision is most likely to show up later as rework, so its ledger entries matter most.
+
 ## Step 0 — Find the story
 
 Look for `eng-flow/backlog/stories/*/tasks.md`. If none exist, tell the user to break a story into tasks first (`eng-flow-epics-stories-tasks` Step 7).
 
-If exactly one story has pending (unchecked) tasks, use it. If more than one does, ask via `AskUserQuestion` which story to work on. If a story is named in the request, use that one directly without asking.
+If exactly one story has pending (unchecked) tasks, use it. If more than one does, ask via `AskUserQuestion` which story to work on. If a story is named in the request, use that one directly without asking. Log it: `risk <open_question|silent_decide> <user_confirmed|ai_inferred> "story selected: <slug> — <why>"`.
 
 Read the story file itself (`eng-flow/backlog/stories/<story-slug>.md`) for acceptance criteria and architecture notes, and the relevant parts of `architecture.md` for that domain — this is the context the task was scoped against.
 
@@ -44,8 +48,8 @@ If `eng-flow/learnings.md` exists (built up by `eng-flow-retro`, Stage 9), skim 
 Work on a story never happens directly on the base/default branch. Check the current branch:
 
 - **Already on a feature branch for this story** (name matches or contains the story slug): continue as-is.
-- **On base, or on an unrelated branch:** pull latest base (`git fetch origin <base> && git pull`), then create a new branch from it — `feature/<story-slug>` (or `fix/<story-slug>` if the story is a bug fix, judged from its title/type) — and switch to it. Branch naming convention reused from `agent-skills`' `git-workflow-and-versioning` (attribution: `docs/DECISIONS.md`).
-- **Uncommitted changes present that aren't part of this task:** stop and ask how to handle them before switching/creating branches — don't carry unrelated work into a new feature branch silently.
+- **On base, or on an unrelated branch:** pull latest base (`git fetch origin <base> && git pull`), then create a new branch from it — `feature/<story-slug>` (or `fix/<story-slug>` if the story is a bug fix, judged from its title/type) — and switch to it. Branch naming convention reused from `agent-skills`' `git-workflow-and-versioning` (attribution: `docs/DECISIONS.md`). Log it: `risk silent_decide ai_inferred "branch: <feature|fix>/<slug> — judged from story title/type"`.
+- **Uncommitted changes present that aren't part of this task:** stop and ask how to handle them before switching/creating branches — don't carry unrelated work into a new feature branch silently. Log it: `risk open_question user_confirmed "uncommitted changes: <how handled>"`.
 
 This is what makes `eng-flow-ship`'s pre-flight (Stage 8, "abort if on the base branch") meaningful — the branch it expects already exists by the time a story's tasks are done.
 
@@ -53,7 +57,7 @@ This is what makes `eng-flow-ship`'s pre-flight (Stage 8, "abort if on the base 
 
 ## Step 1 — Pick the next task
 
-Take the first unchecked task in `tasks.md`, in file order (task numbering already reflects dependency order from Stage 4). If its listed dependencies aren't checked off yet, stop and tell the user which task needs to land first rather than skipping ahead.
+Take the first unchecked task in `tasks.md`, in file order (task numbering already reflects dependency order from Stage 4). If its listed dependencies aren't checked off yet, stop and tell the user which task needs to land first rather than skipping ahead. Log it: `risk silent_decide ai_default "task picked: <task title>"`.
 
 ---
 
@@ -64,7 +68,7 @@ Adapted from `agent-skills`' `incremental-implementation` and `test-driven-devel
 1. **Read** the task's acceptance criteria, description, and files-likely-touched from `tasks.md`.
 2. **Load context** — read the actual files involved, and anything they depend on. Discover the repo's real test/build/lint commands first (package.json scripts, Makefile, CI config) rather than guessing.
 3. **Simplest thing that could work** — implement the smallest complete vertical slice for this task. No abstractions ahead of a second use case, no touching files outside this task's scope.
-4. **Test** — write a failing test for the expected behavior if the repo has a test setup (RED), then implement to pass it (GREEN). If the repo has no test framework, say so explicitly rather than skipping silently.
+4. **Test** — write a failing test for the expected behavior if the repo has a test setup (RED), then implement to pass it (GREEN). If the repo has no test framework, say so explicitly rather than skipping silently. Log it: `risk silent_decide ai_default "no test framework found — proceeding without tests"` when that applies.
 
    **If this is a bug-fix task** (Step 0.5's fix/ vs. feature/ judgment): before forming the fix, spawn a foreground `Agent` with only the bug description — not your own diagnosis or planned fix — to write the reproduction test independently. Adapted from `agent-skills`' `test-driven-development` (attribution: `docs/DECISIONS.md`): a test written by the same reasoning that's about to patch the bug tends to validate the patch, not the actual expected behavior. Verify the subagent's test fails against current code (RED), then implement the fix against it (GREEN).
 5. **Verify** — run the full test suite (regression check, not just the new test), run the build, run lint/typecheck if the stack has them.
@@ -93,11 +97,15 @@ Stop and ask the user, don't push through, when:
 - The task needs a decision that isn't covered by `tasks.md`, the story, or `architecture.md`.
 - The task is high-risk or hard to reverse — auth/permissions, destructive migrations, payments, deletions, deploys, anything touching secrets, or anything that can't be undone with `git revert`. Get explicit sign-off before writing code, not after.
 
+Log each hard stop: `risk must_escalate user_confirmed "<which condition>: <resolution>"` — these three conditions are always `must_escalate` regardless of guide mode; guide mode only changes the density of the currently-silent defaults elsewhere in this skill, not this floor.
+
 ---
 
 ## Step 5 — Report back
 
 Summarize: task completed, tests added, the commit made, anything flagged as "noticed but not touching." State how many tasks remain unchecked in this story's `tasks.md` — if more remain, tell the user to run `/clear` before re-invoking this skill for the next task. Each task run reads its own context fresh from `tasks.md`, the story file, and `architecture.md` (Step 0) — carrying prior tasks' conversation forward adds nothing but token cost and stale context, so a clean session per task is the recommended way to run the loop.
+
+If this run was in guide mode, add a "Decisions I made / decisions you made" summary here, drawn from this run's `eng-flow-decision-log` calls.
 
 Run the Step 5 analytics-finish call (see Analytics section above) before ending.
 

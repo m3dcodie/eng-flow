@@ -1,0 +1,10 @@
+{
+  "name": "eng-flow",
+  "description": "A lightweight, tool-agnostic engineering process — from rapid MVP to production-grade — implemented as Claude Code skills.",
+  "author": {
+    "name": "M T"
+  },
+  "homepage": "https://github.com/m3dcodie/eng-flow",
+  "repository": "https://github.com/m3dcodie/eng-flow",
+  "skills": "./.claude/skills"
+}

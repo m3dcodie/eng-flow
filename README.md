@@ -2,7 +2,7 @@
 
 A lightweight, tool-agnostic engineering process — from rapid MVP to production-grade — for one engineer or a shared team.
 
-It is not a framework, plugin, or dependency. It's a playbook (`PROCESS.md`) plus a set of live Claude Code skills that implement it. No installation beyond having this repo's `.claude/skills/` on the path — copy this repo (or just the pieces you need) into any project.
+It's a playbook (`PROCESS.md`) plus a set of live Claude Code skills that implement it, distributed as a Claude Code plugin — install once, use in any project.
 
 ## The model
 
@@ -13,6 +13,26 @@ Two phases, one gate:
 
 See `PROCESS.md` for the full routing logic and what each stage does.
 
+## Install
+
+```
+/plugin marketplace add m3dcodie/eng-flow
+/plugin install eng-flow@m3dcodie-eng-flow
+```
+
+> **SSH errors?** The marketplace clones over SSH by default. If you don't have SSH keys set up
+> on GitHub, use the full HTTPS URL instead: `/plugin marketplace add https://github.com/m3dcodie/eng-flow.git`.
+
+**Local / development** (no push required, edits take effect immediately):
+
+```bash
+git clone https://github.com/m3dcodie/eng-flow.git
+claude --plugin-dir /path/to/eng-flow
+```
+
+Updating: `/plugin update` picks up new skill versions in every project that installed it — no
+per-project copy or re-scaffold step.
+
 ## Why this exists
 
 This isn't a reinvention of existing SDLC tooling — see `docs/DECISIONS.md` for what was deliberately reused from prior art (gstack, agent-skills, a personal project's own battle-tested skills) versus what's genuinely new here and why.
@@ -21,6 +41,9 @@ This isn't a reinvention of existing SDLC tooling — see `docs/DECISIONS.md` fo
 
 ```
 PROCESS.md                       # the playbook: routing + phase gate
+.claude-plugin/
+  plugin.json                    # plugin manifest — skills field points at .claude/skills/
+  marketplace.json               # marketplace listing, installed via /plugin marketplace add
 .claude/skills/
   eng-flow-spec/                 # Stage 1 — requirements
   eng-flow-domain-model/         # Stage 2 — domain model

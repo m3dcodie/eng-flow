@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "m3dcodie-eng-flow",
+  "description": "eng-flow — a lightweight, tool-agnostic engineering process from rapid MVP to production-grade, as installable Claude Code skills.",
+  "owner": {
+    "name": "M T"
+  },
+  "plugins": [
+    {
+      "name": "eng-flow",
+      "source": {
+        "source": "github",
+        "repo": "m3dcodie/eng-flow"
+      },
+      "description": "12 production-stage skills implementing the eng-flow process (PROCESS.md) — spec, domain model, architecture, eng review, epics/stories/tasks, implementation, code review, QA, ship, retro, analytics, UI design.",
+      "homepage": "https://github.com/m3dcodie/eng-flow"
+    }
+  ]
+}

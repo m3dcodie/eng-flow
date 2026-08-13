@@ -86,11 +86,13 @@ If it doesn't survive these, don't spec it yet — go find sharper answers first
 
 ## MVP mode
 
-Move fast, autonomously, minimal ceremony.
+Move fast, autonomously, minimal ceremony. Skill: `.claude/skills/eng-flow-mvp/SKILL.md`.
 
-- Spec: if the user already has a detailed spec, use it as-is. Otherwise, capture a one-pager — problem, scope, done-when — not a full interrogation.
+- Spec: if the user already has a detailed spec, use it as-is (confirmed with the user, not assumed). Otherwise, capture a one-pager — problem, scope, done-when — not a full interrogation.
 - Tasks: a flat checklist. No epics, no stories, no formal breakdown.
-- No mandated testing or security ceremony. Add it ad hoc if the work warrants it.
+- A ballpark time/token estimate and an explicit go/no-go gate the checklist before any branch or code work starts.
+- Implementation runs as one auto-continuous loop across the whole checklist (not one task per run) — commits (and, if the user opts in, pushes) as it goes, stopping only for test/build breaks with no obvious fix, undecided requirements, high-risk/irreversible work, or a base-branch merge/push.
+- No mandated testing or security ceremony beyond what the loop already does. Add more ad hoc if the work warrants it.
 - Ship, iterate, don't look back unless something breaks.
 
 ---
@@ -103,7 +105,7 @@ Before moving to production mode, confirm the work actually needs it — multipl
 
 ## Production mode
 
-Four stages, strictly staged — each owns different questions, none overlap. A stage never asks what a later stage owns.
+Ten stages (numbered 1–10, with sub-stages 3.5 and 3.6), strictly staged — each owns different questions, none overlap. A stage never asks what a later stage owns.
 
 ### Stage 1 — Spec / Business Requirements (pure requirements, zero technical decisions)
 
@@ -182,6 +184,10 @@ Terminal stage, on-demand per task. Skill: `.claude/skills/eng-flow-implement/SK
 - Hard stop before high-risk/irreversible changes (auth, destructive migrations, payments, deletions, deploys, secrets) — explicit sign-off required
 - Whole-story "auto" mode (implement every remaining task in one approved pass) is not built yet — deferred
 
+### Stage 5 note — branching
+
+Any new feature/bug/task starts the same way: pull latest base, create a branch (`feature/<slug>` or `fix/<slug>`), then work — never directly on the base branch. `eng-flow-implement`'s Step 0.5 handles this before the first task of a story begins.
+
 ### Stage 6 — Code Review
 
 Post-implementation counterpart to Stage 3.5 — reviews the actual diff Stage 5 produced, not a design doc. Skill: `.claude/skills/eng-flow-code-review/SKILL.md`.
@@ -198,10 +204,6 @@ Browser-based, front-end only — skip for backend/CLI/library work with no UI. 
 - Detects Playwright (MCP or project-local) if available; falls back to a guided manual checklist otherwise, never skips QA for lack of tooling
 - Modes: diff-aware (default, scoped to the current story), full, quick
 - Documents bugs with evidence and severity, does not fix them — fixes route through Stage 5 (`eng-flow-implement`)
-
-### Stage 5 note — branching
-
-Any new feature/bug/task starts the same way: pull latest base, create a branch (`feature/<slug>` or `fix/<slug>`), then work — never directly on the base branch. `eng-flow-implement`'s Step 0.5 handles this before the first task of a story begins.
 
 ### Stage 8 — Ship
 

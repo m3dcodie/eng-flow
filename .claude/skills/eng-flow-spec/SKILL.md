@@ -210,7 +210,7 @@ Write the spec to `eng-flow/specs/<dated-slug>/spec.md`, and `competitor-analysi
 ## Step 8 — Report back
 
 Tell the user the saved path, and what's next:
-- **MVP path:** ready to build — capture a flat task checklist and go, no formal breakdown needed.
+- **MVP path:** ready to build — run `eng-flow-mvp`, which will read this spec, confirm it's still what's wanted, and take it from checklist through ship.
 - **Production path** (already-approved, or a validated idea past a scope threshold): note this spec is Stage 1 of the production track; domain modeling is Stage 2, not yet run.
 
 If this run was in guide mode (Decision Ledger section), add a short "Decisions I made / decisions you made" summary here, drawn from this run's `eng-flow-decision-log` calls, before the report is considered done.

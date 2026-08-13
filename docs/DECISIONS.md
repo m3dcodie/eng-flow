@@ -104,6 +104,43 @@ Both make sense for what they're built for: one person going from idea to shippe
 
 So eng-flow's four-stage production track (requirements → domain model → architecture → epics/stories/tasks) is a deliberate return to that industry-standard layering, chosen because this repo targets multi-stakeholder orgs, not the solo/small-team velocity context gstack and agent-skills optimize for.
 
+## Distribution: plugin, not copy or symlink
+
+Three ways to get eng-flow's skills into a project were evaluated directly against both prior-art
+repos on this machine, not chosen abstractly:
+
+- **Copy** (`cp -r .claude/skills/* target/.claude/skills/`) — fully portable, zero infrastructure,
+  but update lag: every project silently drifts to whatever skill version it was scaffolded with
+  unless someone remembers to re-copy.
+- **Symlink**, gstack's model (`.claude/skills/gstack/setup`'s `link_claude_skill_dirs`) — real
+  directory with a symlinked `SKILL.md`, so editing the canonical copy updates every linked project
+  instantly. Checked directly: this only stays safe because gstack backs it with real
+  infrastructure (`VERSION`, `gstack-upgrade/migrations/`, `gstack-update-check`) and a
+  Windows copy-fallback (`_link_or_copy`) for platforms without reliable symlinks. An absolute-path
+  symlink also breaks the moment a project is cloned onto a different machine or CI — gstack
+  accepts that because it's installed per-machine, not committed into the consuming repo's history.
+- **Plugin**, agent-skills' model (`.claude-plugin/plugin.json` + `marketplace.json`, installed via
+  `/plugin marketplace add` + `/plugin install`) — Claude Code's own plugin loader owns caching,
+  versioning, and update propagation (`/plugin update`). Confirmed working end-to-end on this
+  machine against the real `addyosmani/agent-skills` marketplace install. Requires no install
+  script of our own at all: `plugin.json`'s `skills` field points straight at this repo's existing
+  `.claude/skills/`, so there's nothing to keep in sync.
+
+**Chosen: plugin.** It has the least new code to own (two JSON manifests, vs. gstack's ~1500-line
+setup script or a hand-rolled copy/re-copy tool), gets automatic update propagation without the
+symlink model's machine-locality problem, and needs no infrastructure eng-flow doesn't already get
+for free from Claude Code. gstack's multi-tool template generator (one script rendering skill
+variants into `.claude`, `.codex`, `.cursor`, `.gemini`, etc.) was deliberately not adopted — that
+solves cross-agent portability, which isn't a problem eng-flow has since it only targets Claude
+Code today.
+
+**CLAUDE.md handling:** neither installed automatically. agent-skills injects a session-start nudge
+via a `SessionStart` hook instead of ever writing to CLAUDE.md (`hooks/session-start.sh` outputs a
+JSON message injected into context each session); gstack instead does a one-time, consent-gated
+append of a routing section, checked via `grep -q "## Skill routing" CLAUDE.md` for idempotency.
+eng-flow does neither yet — its skill descriptions are already detailed enough for native discovery
+to carry it. Revisit only if that proves insufficient in practice, not preemptively.
+
 ## Routing: why idea-validation isn't always run
 
 Early design had one "spec" skill silently branching between "ask forcing questions" and "take the spec directly" based on whether the project looked like a startup MVP. That's wrong: the trigger isn't "is this an MVP," it's **"has a decision-maker with the authority to approve this already done so?"**

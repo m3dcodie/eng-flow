@@ -9,7 +9,7 @@ It's a playbook (`PROCESS.md`) plus a set of live Claude Code skills that implem
 Two phases, one gate:
 
 - **MVP mode** — move fast, autonomously, minimal ceremony. A spec if you have one; a one-page brief if you don't. No mandated testing/security process.
-- **Production mode** — entered deliberately, as a judgment call (see "Graduation gate" in `PROCESS.md`), not a checklist artifact. Five staged, non-overlapping stages: pure requirements → domain model → architecture → engineering review → epics/stories/tasks → implementation. Each stage only asks what it owns — requirements never touches tech stack, architecture never re-litigates requirements.
+- **Production mode** — entered deliberately, as a judgment call (see "Graduation gate" in `PROCESS.md`), not a checklist artifact. Ten staged, non-overlapping stages: pure requirements → domain model → architecture → engineering review → UI design → epics/stories/tasks → implementation → code review → QA → ship → retro → analytics. Each stage only asks what it owns — requirements never touches tech stack, architecture never re-litigates requirements.
 
 See `PROCESS.md` for the full routing logic and what each stage does.
 
@@ -49,8 +49,14 @@ PROCESS.md                       # the playbook: routing + phase gate
   eng-flow-domain-model/         # Stage 2 — domain model
   eng-flow-architecture/         # Stage 3 — technical design
   eng-flow-eng-review/           # Stage 3.5 — architecture review
+  eng-flow-ui-design/            # Stage 3.6 — UI/UX design
   eng-flow-epics-stories-tasks/  # Stage 4 — backlog
   eng-flow-implement/            # Stage 5 — implementation
+  eng-flow-code-review/          # Stage 6 — code review
+  eng-flow-qa/                   # Stage 7 — QA
+  eng-flow-ship/                 # Stage 8 — ship
+  eng-flow-retro/                # Stage 9 — retro
+  eng-flow-analytics/            # Stage 10 — analytics rollup
 docs/
   DECISIONS.md                   # design rationale, comparisons, external validation
 ```

@@ -1,8 +1,8 @@
 {
   "name": "eng-flow",
-  "description": "A lightweight, tool-agnostic engineering process — from rapid MVP to production-grade — implemented as Claude Code skills.",
+  "description": "A tool-agnostic engineering process implemented as Claude Code skills: a lightweight MVP mode for fast, low-ceremony builds, and a staged production-grade track (spec through ship) for work that needs formal requirements, architecture, review, and QA. PROCESS.md defines the routing between the two.",
   "author": {
-    "name": "M T"
+    "name": "Suhail Tahir"
   },
   "homepage": "https://github.com/m3dcodie/eng-flow",
   "repository": "https://github.com/m3dcodie/eng-flow",

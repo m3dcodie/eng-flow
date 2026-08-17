@@ -96,6 +96,10 @@ Ask for numbers if the spec didn't give any. If none are available and the user 
 
 Log it: `risk silent_decide ai_default "NFR target for <dimension>: assumed <value> — no user-provided number"` for each assumed target — this is exactly the kind of silent default `eng-flow-retro` should be watching for correlation against later rework.
 
+**Project-level security policy.** Look for `eng-flow/security-policy.md` — project-level, sits alongside `design-system.md` (reused across specs, not rebuilt per run). If it exists, the Security NFR above must address each of its stated rules explicitly for this spec's scope, not just restate "secure." If it doesn't exist, offer via `AskUserQuestion`: "No project-level security policy found. Establish standing rules now (e.g. credential handling, least-privilege data access, write confirmation) that this and future specs' architecture/eng-review/code-review stages will check against?" Options: A) Yes — capture rules now B) No — this spec's Security NFR stands alone. If A and the user has no strong opinion yet, offer common local-first defaults as a starting point (edit to taste): local/MCP servers never forward credentials off the local machine; DB access defaults to least-privilege/read-only unless a story states a write is required; secrets load from environment variables and never enter committed config; state-mutating operations require explicit confirmation before executing. Save the agreed rules as a short numbered list to `eng-flow/security-policy.md`. This is a knowledge-asymmetry call — never invent or silently skip project security policy.
+
+Log it: `risk knowledge_asymmetry open_question user_confirmed "security policy: established — N rules | declined | already existed"`.
+
 ---
 
 ## Step 6 — Deployment

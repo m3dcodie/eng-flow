@@ -35,6 +35,8 @@ Look for `eng-flow/specs/*/architecture.md` and the `domain-model.md` / `spec.md
 
 Read all three: the spec's constraints and NFRs, the domain model's entities/relationships, and the architecture's tech stack, diagram, API contracts, NFR targets, and deployment topology.
 
+Also look for `eng-flow/security-policy.md` (project-level, optional — established at Stage 3 if the project has one). Read it if present; if absent, note it in the report and fall back to the generic security-architecture check below.
+
 ---
 
 ## Step 1 — Architecture review checklist
@@ -43,7 +45,7 @@ Walk `architecture.md` against:
 - **Component boundaries and coupling** — do the container-level boxes reflect real seams, or is this one thing pretending to be several (or several things pretending to be one)?
 - **Data flow bottlenecks** — any path where everything funnels through one component under the stated load/scale targets?
 - **Scaling characteristics and single points of failure** — does the deployment topology have one of anything that can't be one of anything?
-- **Security architecture** — auth model, data-at-rest/in-transit handling, API boundary trust assumptions — actually specified, not just "secure" as an adjective.
+- **Security architecture** — auth model, data-at-rest/in-transit handling, API boundary trust assumptions — actually specified, not just "secure" as an adjective. If `eng-flow/security-policy.md` exists, check `architecture.md` explicitly addresses each of its stated rules — a gap here is a finding like any other, not a pass by default.
 - **Failure scenario per integration point** — for each external dependency or service boundary in the diagram, is there a stated realistic failure mode and whether the design accounts for it?
 - **Distribution path** — if this introduces a new deployable artifact, is the build/publish/deploy path part of the doc (or explicitly deferred), not silently assumed?
 

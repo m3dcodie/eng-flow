@@ -152,12 +152,13 @@ Only here do tech stack, deployment, and API/microservice shape get decided. Ski
 - API contracts
 - Deployment strategy — local/containers now, cloud-ready notes for later; match the user's actual current practice (local dev, containers, GitHub) rather than assuming cloud deploy is imminent
 - ADRs for significant decisions — one per decision, as they come up, not retrofitted
+- Project-level security policy (`eng-flow/security-policy.md`, optional) — standing rules (credential handling, least-privilege access, write confirmation, etc.), established here if the project doesn't already have one, reused across specs like `design-system.md`, checked by Stage 3.5 and Stage 6
 
 ### Stage 3.5 — Engineering Review
 
 Reviews `architecture.md` before any backlog work is built on top of it — catches design problems while they're still cheap to fix, not a code review (no code exists yet at this point). Skill: `.claude/skills/eng-flow-eng-review/SKILL.md`.
 
-- Architecture-review checklist: component boundaries/coupling, data flow bottlenecks, scaling/SPOF, security architecture, per-integration-point failure scenarios, distribution path
+- Architecture-review checklist: component boundaries/coupling, data flow bottlenecks, scaling/SPOF, security architecture (checked against `eng-flow/security-policy.md` when one exists, not just generically), per-integration-point failure scenarios, distribution path
 - Cognitive-pattern lenses (adapted from gstack's `plan-eng-review`, see `docs/DECISIONS.md`): boring by default, blast radius, Conway's Law, essential vs. accidental complexity, two-week smell test, incremental over revolutionary, reversibility preference
 - Interactive, one issue at a time — each finding grounded in the specific section of `architecture.md` it reacts to, explicit accept/change/reject from the user before moving on
 - Findings and resolutions logged to `eng-review.md` in the same spec folder; accepted/changed findings also update `architecture.md` directly
@@ -192,7 +193,7 @@ Any new feature/bug/task starts the same way: pull latest base, create a branch 
 
 Post-implementation counterpart to Stage 3.5 — reviews the actual diff Stage 5 produced, not a design doc. Skill: `.claude/skills/eng-flow-code-review/SKILL.md`.
 
-- Five-axis review: correctness, readability, architecture, security, performance
+- Five-axis review: correctness, readability, architecture, security (checked against `eng-flow/security-policy.md` when one exists), performance
 - Severity-tagged findings — Critical/Required block merge and get an individual sign-off gate; Nit/Optional/FYI are listed, not gated
 - Tests reviewed first, dead code flagged before removal, verdict (Approve / Request changes) saved alongside the story
 
@@ -272,6 +273,7 @@ Everything lives inside the project's own repo — no global/external store.
 ```
 <project-root>/eng-flow/
   design-system.md               # project-level, reused across specs (Stage 3.6)
+  security-policy.md             # project-level, optional, reused across specs (Stage 3; checked by 3.5 and 6)
   specs/
     2026-08-06-csv-export/
       spec.md

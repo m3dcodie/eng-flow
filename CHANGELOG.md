@@ -2,6 +2,12 @@
 
 All notable changes to eng-flow are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.0] — 2026-08-18
+
+### Added
+
+- Optional project-level security policy (`eng-flow/security-policy.md`) — `eng-flow-architecture` (Stage 3) offers to establish standing security rules (credential handling, least-privilege access, write confirmation, etc.) when none exist yet; `eng-flow-eng-review` (Stage 3.5) checks `architecture.md` against each stated rule, and `eng-flow-code-review` (Stage 6) checks the actual diff against each rule in its Security axis and now dispatches the security-specialist subagent whenever the policy file exists, not only when the diff looks security-shaped by heuristic. See `docs/DECISIONS.md`.
+
 ## [0.1.0] — 2026-08-18
 
 Initial tracked release.

@@ -150,3 +150,13 @@ Early design had one "spec" skill silently branching between "ask forcing questi
 - If it's a feature/story in an existing product → the demand question was answered when the product shipped; go straight to spec.
 
 This is why Phase 0 (routing) checks decision-authority first, not project size or "startup-ness."
+
+## eng-flow-browse: bundling our own Playwright MCP server
+
+The Stage 7 — QA decision above still stands: eng-flow shouldn't depend on gstack's proprietary browser daemon at runtime. But that decision left a real gap — this environment has no MCP browser tool registered by default, so `eng-flow-qa`'s Step 0 detection fell through to guided-manual mode every time, not because automation was unavailable in principle, but because nothing had registered it.
+
+**Decision:** add `eng-flow-browse`, a new, separate skill (not folded into `eng-flow-qa`) that wraps Microsoft's own official Playwright MCP server (`@playwright/mcp`, pinned to `0.0.79` — confirmed current latest via `npm view @playwright/mcp version` at the time this was written), declared directly in `.claude-plugin/plugin.json`'s `mcpServers` field. Claude Code auto-starts servers declared there when the plugin is enabled — no user-side `claude mcp add` step, no manual setup, present for every installer. This sits at the lowest scope-precedence tier: a user's own MCP config under a colliding server name silently wins, no merge, no error — acceptable, since that's a user override, not a conflict to resolve.
+
+`eng-flow-browse` is deliberately general-purpose, not QA-specific — a lightweight navigate/interact/screenshot/report loop any agent or skill in this plugin can reach for standalone, without the per-page checklist or severity taxonomy that belongs to `eng-flow-qa`. It carries none of the Analytics/Decision-Ledger checkpoint machinery the ten numbered production-stage skills (plus `eng-flow-mvp`) use — confirmed by grepping every `SKILL.md` for `eng-flow-analytics-checkpoint`/`eng-flow-decision-log`: that pattern is exclusively stage-tracked, story-slug-scoped work, and this is neither.
+
+`eng-flow-qa`'s Step 0 now prefers `eng-flow-browse` directly instead of the old 3-way runtime detection (MCP / project-local Playwright / none) — the "is anything registered" question is moot once the plugin bundles its own server. Guided-manual checklist remains the only fallback, now for the narrower edge case of MCP failing to start in a given session, not the default outcome in this environment.

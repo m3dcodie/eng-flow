@@ -1,6 +1,6 @@
 ---
 name: eng-flow-qa
-description: Production Stage 7 — browser-based, front-end-only behavioral QA. Exercises the running app (not the diff) to find bugs a code review can't catch. Browser-agnostic on Playwright specifically (gstack's own browser daemon is a wrapper around it) — falls back to a guided manual checklist if no browser automation is available. Documents bugs; does not fix them — fixes route through eng-flow-implement.
+description: Production Stage 7 — browser-based, front-end-only behavioral QA. Exercises the running app (not the diff) to find bugs a code review can't catch. Drives the browser via the plugin-bundled eng-flow-browse skill — falls back to a guided manual checklist if browser automation is unavailable in a given session. Documents bugs; does not fix them — fixes route through eng-flow-implement.
 allowed-tools:
   - Read
   - Grep
@@ -31,14 +31,11 @@ Check `$ARGUMENTS` for a `--guide` token; if present, every decision point below
 
 ## Step 0 — Detect browser automation
 
-Check, in order:
-1. An MCP-provided Playwright (or equivalent browser-automation) tool registered in this environment.
-2. Playwright installed in the target project itself (`@playwright/test` or `playwright` in `package.json`, or `node_modules/playwright`) — drive it directly via a small script run through Bash.
-3. Neither present.
+Prefer `eng-flow-browse` (bundled with this plugin — its `mcpServers.playwright` entry auto-starts, so it's present for every installer with no manual setup). Invoke it directly for navigation, screenshots, and console-error checks in Step 3, rather than driving Playwright by hand here.
 
-If (1) or (2), use it for navigation, screenshots, and console-error checks. If neither, fall back to **guided-manual mode**: present the per-page checklist (Step 3) to the user, ask them to walk through it in their own browser and report back what they see (descriptions or pasted screenshots) — don't skip QA just because there's no automation, degrade the mechanism, not the coverage.
+If `eng-flow-browse` can't reach a working browser in this session (MCP failed to start, sandboxed environment, etc.), fall back to **guided-manual mode**: present the per-page checklist (Step 3) to the user, ask them to walk through it in their own browser and report back what they see (descriptions or pasted screenshots) — don't skip QA just because automation is unavailable this run, degrade the mechanism, not the coverage.
 
-Log it: `risk silent_decide ai_default "browser automation: <mcp playwright | project playwright | guided-manual fallback>"`.
+Log it: `risk silent_decide ai_default "browser automation: <eng-flow-browse | guided-manual fallback>"`.
 
 ---
 

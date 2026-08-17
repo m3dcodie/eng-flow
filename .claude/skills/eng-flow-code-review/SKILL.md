@@ -29,6 +29,10 @@ At the start of every step below (including Step 0), run `python3 .claude/skills
 
 Check `$ARGUMENTS` for a `--guide` token; if present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 7's report adds a "Decisions I made / decisions you made" summary. Log every decision point via `python3 .claude/skills/lib/bin/eng-flow-decision-log eng-flow-code-review "<step>" <reason> <mode> <owner> "<description>" "<story-slug>"`. See `eng-flow-spec`'s Decision Ledger section for the taxonomy and why. Rollup/analysis: `eng-flow-retro` Step 1 (Stage 9).
 
+## Findings Ledger
+
+Step 7 logs the severity-tagged finding counts it already computed for `code-review.md` to project-level `eng-flow/findings.jsonl`, via `eng-flow-findings-log` — see Step 7 for the exact call. Feeds `eng-flow-analytics`' (Stage 10) bug-rate rollup; not something this skill reads back itself.
+
 ## Step 0 — Scope
 
 Default to the current branch's diff against its base branch. If that's ambiguous (detached HEAD, no clear base, or the user named something specific — a story, a file, a commit range), ask via `AskUserQuestion` rather than guessing. Log it: `risk <silent_decide|open_question> <ai_default|user_confirmed> "scope: <what was reviewed>"`.
@@ -143,5 +147,7 @@ Write findings to `eng-flow/backlog/stories/<story-slug>/code-review.md` (or, if
 Report the verdict and a summary of what was fixed vs. deferred.
 
 If this run was in guide mode, add a "Decisions I made / decisions you made" summary here, drawn from this run's `eng-flow-decision-log` calls.
+
+Log the bug-rate rollup: `python3 .claude/skills/lib/bin/eng-flow-findings-log eng-flow-code-review "<verdict>" <critical-count> <required-count> <nit-count> "<story-slug>"`. The ledger only has three buckets (shared with `eng-flow-qa`'s simpler vocabulary) — Step 4's five severities collapse into it as Critical→critical, Required→required, and Nit + Optional/Consider + FYI (all three are "no individual gate" tiers) summed into the nit-count. Counts are of findings *caught this pass*, regardless of whether they were fixed inline; this feeds `eng-flow-analytics`' (Stage 10) bug-rate rollup, not a code-quality score.
 
 Run the Step 7 analytics-finish call (see Analytics section above) before ending.

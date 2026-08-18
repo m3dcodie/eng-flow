@@ -29,6 +29,10 @@ At the start of every step below (including Step 0), run `python3 .claude/skills
 
 Check `$ARGUMENTS` for a `--guide` token; if present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 5's report adds a "Decisions I made / decisions you made" summary. Log every decision point via `python3 .claude/skills/lib/bin/eng-flow-decision-log eng-flow-qa "<step>" <reason> <mode> <owner> "<description>" "<story-slug>"`. See `eng-flow-spec`'s Decision Ledger section for the taxonomy and why. Rollup/analysis: `eng-flow-retro` Step 1 (Stage 9).
 
+## Findings Ledger
+
+Step 5 logs the severity-tagged issue counts it already computed for `qa-report.md` to project-level `eng-flow/findings.jsonl`, via `eng-flow-findings-log` — see Step 5 for the exact call. Feeds `eng-flow-analytics`' (Stage 10) bug-rate rollup; not something this skill reads back itself.
+
 ## Step 0 — Detect browser automation
 
 Prefer `eng-flow-browse` (bundled with this plugin — its `mcpServers.playwright` entry auto-starts, so it's present for every installer with no manual setup). Invoke it directly for navigation, screenshots, and console-error checks in Step 3, rather than driving Playwright by hand here.
@@ -107,5 +111,7 @@ Mode: [diff-aware | full | quick]
 **Do not fix issues in this skill.** Report the list, then tell the user: "Route these through `eng-flow-implement` as tasks against the story" (or, if a Critical issue is a straightforward code-review-catchable regression, note that too) — QA's job ends at documentation, same separation as every other stage in this track.
 
 If this run was in guide mode, add a "Decisions I made / decisions you made" summary here, drawn from this run's `eng-flow-decision-log` calls.
+
+Log the bug-rate rollup: `python3 .claude/skills/lib/bin/eng-flow-findings-log eng-flow-qa "<summary verdict>" <critical-count> <required-count> <nit-count> "<story-slug>"` — this feeds `eng-flow-analytics`' (Stage 10) bug-rate rollup, not a QA score.
 
 Run the Step 5 analytics-finish call (see Analytics section above) before ending.

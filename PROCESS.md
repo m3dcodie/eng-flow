@@ -229,7 +229,7 @@ Skill: `.claude/skills/eng-flow-retro/SKILL.md`.
 
 ### Analytics (cross-cutting, not a sequential stage)
 
-Every stage above (1 through 9) logs its own time and token usage, incrementally, step by step, to project-level `eng-flow/analytics.jsonl` — via `eng-flow-analytics-checkpoint` at the start of each step and `eng-flow-analytics-finish` at the end, shared scripts under `.claude/skills/lib/bin/`. Logging incrementally (not just once at start/end of a whole skill run) means a killed terminal or system restart loses at most the current in-flight step, not the whole run — an orphaned marker from a crash gets recovered and flushed the next time that skill starts.
+Every stage above (1 through 9) logs its own time and token usage, incrementally, step by step, to project-level `eng-flow/analytics.jsonl` — via `eng-flow-analytics-checkpoint` at the start of each step and `eng-flow-analytics-finish` at the end, shared scripts under `${CLAUDE_PLUGIN_ROOT}/skills/lib/bin/`. Logging incrementally (not just once at start/end of a whole skill run) means a killed terminal or system restart loses at most the current in-flight step, not the whole run — an orphaned marker from a crash gets recovered and flushed the next time that skill starts.
 
 Token counts come from Claude Code's own session transcript (`$CLAUDE_CODE_SESSION_ID`), which carries real per-turn usage data — not something gstack or agent-skills does. Degrades to time-only if unavailable; never blocks the actual work.
 
@@ -237,7 +237,7 @@ Stages 6 and 7 additionally log severity-tagged finding counts to project-level 
 
 ### Decision Ledger (cross-cutting, not a sequential stage)
 
-Every stage above logs each judgment call it makes — not just risky/irreversible ones (already gated elsewhere), but anywhere the AI decides something the user might reasonably have wanted a say in. Logged via `eng-flow-decision-log`, shared script under `.claude/skills/lib/bin/`, appending to project-level `eng-flow/decisions.jsonl`. Full taxonomy lives in `eng-flow-spec`'s Decision Ledger section (canonical copy); every other skill's own section is a short pointer back to it.
+Every stage above logs each judgment call it makes — not just risky/irreversible ones (already gated elsewhere), but anywhere the AI decides something the user might reasonably have wanted a say in. Logged via `eng-flow-decision-log`, shared script under `${CLAUDE_PLUGIN_ROOT}/skills/lib/bin/`, appending to project-level `eng-flow/decisions.jsonl`. Full taxonomy lives in `eng-flow-spec`'s Decision Ledger section (canonical copy); every other skill's own section is a short pointer back to it.
 
 Three fields per entry:
 - **reason** — why this was routed the way it was: `risk` (costly or hard to reverse downstream) | `knowledge_asymmetry` (stakeholder/customer context the AI structurally can't infer — e.g. a color scheme) | `stated_preference` (the user's told the assistant they want to be asked about this category)

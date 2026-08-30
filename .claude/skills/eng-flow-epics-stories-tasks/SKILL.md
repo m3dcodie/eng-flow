@@ -24,11 +24,11 @@ Stage 4 of the production track. Unlike Stages 1-3, output here is **project-lev
 
 ## Analytics
 
-At the start of every numbered step in Steps 0-6 (including Step 0), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-epics-stories-tasks "<step name>" "<dated-slug>"`. As the last action of Step 6, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-epics-stories-tasks "<dated-slug>"`. Step 7 is a separate invocation and gets its own analytics calls — see its own note below. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
+At the start of every numbered step in Steps 0-6 (including Step 0), run `python3 "${CLAUDE_PLUGIN_ROOT}/skills/lib/bin/eng-flow-analytics-checkpoint" eng-flow-epics-stories-tasks "<step name>" "<dated-slug>"`. As the last action of Step 6, run `python3 "${CLAUDE_PLUGIN_ROOT}/skills/lib/bin/eng-flow-analytics-finish" eng-flow-epics-stories-tasks "<dated-slug>"`. Step 7 is a separate invocation and gets its own analytics calls — see its own note below. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
 
 ## Decision Ledger
 
-Check `$ARGUMENTS` for a `--guide` token; if present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 6's report (Step 7's own report for the breakdown run) adds a "Decisions I made / decisions you made" summary. Log every decision point via `python3 .claude/skills/lib/bin/eng-flow-decision-log eng-flow-epics-stories-tasks "<step>" <reason> <mode> <owner> "<description>" "<dated-slug>"` (use `eng-flow-epics-stories-tasks-breakdown` as the skill name for Step 7's own calls, matching its separate analytics tag). See `eng-flow-spec`'s Decision Ledger section for the taxonomy and why. Rollup/analysis: `eng-flow-retro` Step 1 (Stage 9).
+Check `$ARGUMENTS` for a `--guide` token; if present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 6's report (Step 7's own report for the breakdown run) adds a "Decisions I made / decisions you made" summary. Log every decision point via `python3 "${CLAUDE_PLUGIN_ROOT}/skills/lib/bin/eng-flow-decision-log" eng-flow-epics-stories-tasks "<step>" <reason> <mode> <owner> "<description>" "<dated-slug>"` (use `eng-flow-epics-stories-tasks-breakdown` as the skill name for Step 7's own calls, matching its separate analytics tag). See `eng-flow-spec`'s Decision Ledger section for the taxonomy and why. Rollup/analysis: `eng-flow-retro` Step 1 (Stage 9).
 
 ## Step 0 — Find the inputs
 
@@ -139,7 +139,7 @@ Run the Step 6 analytics-finish call (see Analytics section above) before ending
 
 ## Step 7 (separate invocation, on-demand, per-story) — Task breakdown
 
-**Analytics:** this is its own run, tagged separately. At the start, run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-epics-stories-tasks-breakdown "task-breakdown" "<story-slug>"`. When done (after saving `tasks.md` below), run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-epics-stories-tasks-breakdown "<story-slug>"`.
+**Analytics:** this is its own run, tagged separately. At the start, run `python3 "${CLAUDE_PLUGIN_ROOT}/skills/lib/bin/eng-flow-analytics-checkpoint" eng-flow-epics-stories-tasks-breakdown "task-breakdown" "<story-slug>"`. When done (after saving `tasks.md` below), run `python3 "${CLAUDE_PLUGIN_ROOT}/skills/lib/bin/eng-flow-analytics-finish" eng-flow-epics-stories-tasks-breakdown "<story-slug>"`.
 
 Only runs when the user names a specific story to implement. Read that story's file (`eng-flow/backlog/stories/<story-slug>.md`) and the relevant parts of `architecture.md` for that domain.
 

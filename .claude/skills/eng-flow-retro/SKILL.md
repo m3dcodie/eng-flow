@@ -22,11 +22,11 @@ Stage 9 of the production track. Reflects on a story that just shipped (or a spe
 
 ## Analytics
 
-At the start of every step below (including Step 0), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-retro "<step name>" "<story-slug>"`. As the last action of Step 5, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-retro "<story-slug>"`. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
+At the start of every step below (including Step 0), run `python3 "${CLAUDE_PLUGIN_ROOT}/skills/lib/bin/eng-flow-analytics-checkpoint" eng-flow-retro "<step name>" "<story-slug>"`. As the last action of Step 5, run `python3 "${CLAUDE_PLUGIN_ROOT}/skills/lib/bin/eng-flow-analytics-finish" eng-flow-retro "<story-slug>"`. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
 
 ## Decision Ledger
 
-Check `$ARGUMENTS` for a `--guide` token; if present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 5's report adds a "Decisions I made / decisions you made" summary. Log every decision point via `python3 .claude/skills/lib/bin/eng-flow-decision-log eng-flow-retro "<step>" <reason> <mode> <owner> "<description>" "<story-slug>"`. See `eng-flow-spec`'s Decision Ledger section for the taxonomy and why.
+Check `$ARGUMENTS` for a `--guide` token; if present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 5's report adds a "Decisions I made / decisions you made" summary. Log every decision point via `python3 "${CLAUDE_PLUGIN_ROOT}/skills/lib/bin/eng-flow-decision-log" eng-flow-retro "<step>" <reason> <mode> <owner> "<description>" "<story-slug>"`. See `eng-flow-spec`'s Decision Ledger section for the taxonomy and why.
 
 This skill is also the **consumer**, not just another logger — Step 1 below reads `eng-flow/decisions.jsonl` back and Step 3 turns what it finds into durable learnings. That's what makes the whole ledger worth running elsewhere: a decision nobody analyzes is dead weight, same principle `learnings.md` itself already runs on.
 

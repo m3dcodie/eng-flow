@@ -23,11 +23,11 @@ Stage 6 of the production track. Reviews the actual diff produced by Stage 5's i
 
 ## Analytics
 
-At the start of every step below (including Step 0), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-code-review "<step name>" "<story-slug>"`. As the last action of Step 7, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-code-review "<story-slug>"`. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
+At the start of every step below (including Step 0), run `python3 "${CLAUDE_PLUGIN_ROOT}/skills/lib/bin/eng-flow-analytics-checkpoint" eng-flow-code-review "<step name>" "<story-slug>"`. As the last action of Step 7, run `python3 "${CLAUDE_PLUGIN_ROOT}/skills/lib/bin/eng-flow-analytics-finish" eng-flow-code-review "<story-slug>"`. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
 
 ## Decision Ledger
 
-Check `$ARGUMENTS` for a `--guide` token; if present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 7's report adds a "Decisions I made / decisions you made" summary. Log every decision point via `python3 .claude/skills/lib/bin/eng-flow-decision-log eng-flow-code-review "<step>" <reason> <mode> <owner> "<description>" "<story-slug>"`. See `eng-flow-spec`'s Decision Ledger section for the taxonomy and why. Rollup/analysis: `eng-flow-retro` Step 1 (Stage 9).
+Check `$ARGUMENTS` for a `--guide` token; if present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 7's report adds a "Decisions I made / decisions you made" summary. Log every decision point via `python3 "${CLAUDE_PLUGIN_ROOT}/skills/lib/bin/eng-flow-decision-log" eng-flow-code-review "<step>" <reason> <mode> <owner> "<description>" "<story-slug>"`. See `eng-flow-spec`'s Decision Ledger section for the taxonomy and why. Rollup/analysis: `eng-flow-retro` Step 1 (Stage 9).
 
 ## Findings Ledger
 
@@ -148,6 +148,6 @@ Report the verdict and a summary of what was fixed vs. deferred.
 
 If this run was in guide mode, add a "Decisions I made / decisions you made" summary here, drawn from this run's `eng-flow-decision-log` calls.
 
-Log the bug-rate rollup: `python3 .claude/skills/lib/bin/eng-flow-findings-log eng-flow-code-review "<verdict>" <critical-count> <required-count> <nit-count> "<story-slug>"`. The ledger only has three buckets (shared with `eng-flow-qa`'s simpler vocabulary) — Step 4's five severities collapse into it as Critical→critical, Required→required, and Nit + Optional/Consider + FYI (all three are "no individual gate" tiers) summed into the nit-count. Counts are of findings *caught this pass*, regardless of whether they were fixed inline; this feeds `eng-flow-analytics`' (Stage 10) bug-rate rollup, not a code-quality score.
+Log the bug-rate rollup: `python3 "${CLAUDE_PLUGIN_ROOT}/skills/lib/bin/eng-flow-findings-log" eng-flow-code-review "<verdict>" <critical-count> <required-count> <nit-count> "<story-slug>"`. The ledger only has three buckets (shared with `eng-flow-qa`'s simpler vocabulary) — Step 4's five severities collapse into it as Critical→critical, Required→required, and Nit + Optional/Consider + FYI (all three are "no individual gate" tiers) summed into the nit-count. Counts are of findings *caught this pass*, regardless of whether they were fixed inline; this feeds `eng-flow-analytics`' (Stage 10) bug-rate rollup, not a code-quality score.
 
 Run the Step 7 analytics-finish call (see Analytics section above) before ending.

@@ -25,11 +25,11 @@ Stage 5 of the production track, terminal — consumes a story's `tasks.md` (fro
 
 ## Analytics
 
-At the start of every step below (including Step 0 and Step 0.5), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-implement "<step name>" "<story-slug>"`. As the last action of Step 5, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-implement "<story-slug>"`. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
+At the start of every step below (including Step 0 and Step 0.5), run `python3 "${CLAUDE_PLUGIN_ROOT}/skills/lib/bin/eng-flow-analytics-checkpoint" eng-flow-implement "<step name>" "<story-slug>"`. As the last action of Step 5, run `python3 "${CLAUDE_PLUGIN_ROOT}/skills/lib/bin/eng-flow-analytics-finish" eng-flow-implement "<story-slug>"`. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
 
 ## Decision Ledger
 
-Check `$ARGUMENTS` for a `--guide` token; if present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 5's report adds a "Decisions I made / decisions you made" summary. Log every decision point via `python3 .claude/skills/lib/bin/eng-flow-decision-log eng-flow-implement "<step>" <reason> <mode> <owner> "<description>" "<story-slug>"`. See `eng-flow-spec`'s Decision Ledger section for the taxonomy and why. Rollup/analysis: `eng-flow-retro` Step 1 (Stage 9) — this is the skill where a silently-defaulted decision is most likely to show up later as rework, so its ledger entries matter most.
+Check `$ARGUMENTS` for a `--guide` token; if present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 5's report adds a "Decisions I made / decisions you made" summary. Log every decision point via `python3 "${CLAUDE_PLUGIN_ROOT}/skills/lib/bin/eng-flow-decision-log" eng-flow-implement "<step>" <reason> <mode> <owner> "<description>" "<story-slug>"`. See `eng-flow-spec`'s Decision Ledger section for the taxonomy and why. Rollup/analysis: `eng-flow-retro` Step 1 (Stage 9) — this is the skill where a silently-defaulted decision is most likely to show up later as rework, so its ledger entries matter most.
 
 ## Step 0 — Find the story
 

@@ -26,11 +26,11 @@ Implements "MVP mode" from `PROCESS.md`: move fast, autonomously, minimal ceremo
 
 ## Analytics
 
-At the start of every numbered step below (including Step 0), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-mvp "<step name>" "<dated-slug-if-known>"`. As the last action of Step 6, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-mvp "<dated-slug>"`. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
+At the start of every numbered step below (including Step 0), run `python3 "${CLAUDE_PLUGIN_ROOT}/skills/lib/bin/eng-flow-analytics-checkpoint" eng-flow-mvp "<step name>" "<dated-slug-if-known>"`. As the last action of Step 6, run `python3 "${CLAUDE_PLUGIN_ROOT}/skills/lib/bin/eng-flow-analytics-finish" eng-flow-mvp "<dated-slug>"`. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
 
 ## Decision Ledger
 
-Check `$ARGUMENTS` for a `--guide` token; if present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 6's report adds a "Decisions I made / decisions you made" summary. Log every decision point via `python3 .claude/skills/lib/bin/eng-flow-decision-log eng-flow-mvp "<step>" <reason> <mode> <owner> "<description>" "<dated-slug-if-known>"`. See `eng-flow-spec`'s Decision Ledger section for the taxonomy and why. Rollup/analysis: `eng-flow-retro` Step 1 (Stage 9), same as every other skill's ledger entries.
+Check `$ARGUMENTS` for a `--guide` token; if present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 6's report adds a "Decisions I made / decisions you made" summary. Log every decision point via `python3 "${CLAUDE_PLUGIN_ROOT}/skills/lib/bin/eng-flow-decision-log" eng-flow-mvp "<step>" <reason> <mode> <owner> "<description>" "<dated-slug-if-known>"`. See `eng-flow-spec`'s Decision Ledger section for the taxonomy and why. Rollup/analysis: `eng-flow-retro` Step 1 (Stage 9), same as every other skill's ledger entries.
 
 ## Step 0 — Entry: resume check, then scope sanity check
 

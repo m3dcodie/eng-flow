@@ -26,13 +26,13 @@ Turns a rough idea, an already-approved product/feature, or a new story into a s
 
 ## Analytics
 
-At the start of every numbered step below (including Step 0), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-spec "<step name>" "<dated-slug-if-known>"`. As the last action of Step 8, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-spec "<dated-slug>"`. Logs time and token usage per step, incrementally, to `eng-flow/analytics.jsonl` — a killed terminal or restart loses at most the in-flight step, not the whole run. Degrades silently if unavailable; never blocks real work. Rollup: `eng-flow-analytics` (Stage 10).
+At the start of every numbered step below (including Step 0), run `python3 "${CLAUDE_PLUGIN_ROOT}/skills/lib/bin/eng-flow-analytics-checkpoint" eng-flow-spec "<step name>" "<dated-slug-if-known>"`. As the last action of Step 8, run `python3 "${CLAUDE_PLUGIN_ROOT}/skills/lib/bin/eng-flow-analytics-finish" eng-flow-spec "<dated-slug>"`. Logs time and token usage per step, incrementally, to `eng-flow/analytics.jsonl` — a killed terminal or restart loses at most the in-flight step, not the whole run. Degrades silently if unavailable; never blocks real work. Rollup: `eng-flow-analytics` (Stage 10).
 
 ## Decision Ledger
 
 **Guide mode:** check `$ARGUMENTS` for a `--guide` token before treating the remainder as the topic (strip it out either way). When present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 8's report adds a "Decisions I made / decisions you made" summary before saving.
 
-**Logging:** at each decision point below, run `python3 .claude/skills/lib/bin/eng-flow-decision-log eng-flow-spec "<step name>" <reason> <mode> <owner> "<description>" "<dated-slug-if-known>"` — guide mode or not, every decision point gets logged; the flag only changes whether it's surfaced live.
+**Logging:** at each decision point below, run `python3 "${CLAUDE_PLUGIN_ROOT}/skills/lib/bin/eng-flow-decision-log" eng-flow-spec "<step name>" <reason> <mode> <owner> "<description>" "<dated-slug-if-known>"` — guide mode or not, every decision point gets logged; the flag only changes whether it's surfaced live.
 
 - `reason` — why this was routed the way it was: `risk` (getting it wrong is costly or hard to reverse downstream) | `knowledge_asymmetry` (stakeholder/customer context the AI can't infer) | `stated_preference` (the user has told the assistant they want to be asked about this category)
 - `mode` — how it was handled: `silent_decide` | `surface_existing` (pull real candidates from what already exists — brand guide, prior spec, existing pattern — never invent) | `generate_options` (synthesize novel candidates; only on explicit user request or when nothing exists to surface) | `open_question` | `must_escalate`

@@ -26,7 +26,7 @@ Ask (or infer from the request) whether this is a whole-project report or scoped
 ## Step 1 — Run the rollup
 
 ```bash
-python3 .claude/skills/lib/bin/eng-flow-analytics-report [story-slug]
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/lib/bin/eng-flow-analytics-report" [story-slug]
 ```
 
 If `eng-flow/analytics.jsonl` doesn't exist yet or is empty, say so plainly — no data has accumulated yet, nothing to report. This isn't an error.

@@ -2,6 +2,12 @@
 
 All notable changes to eng-flow are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.1] — 2026-08-31
+
+### Fixed
+
+- Shared scripts under `.claude/skills/lib/bin/` (`eng-flow-analytics-checkpoint`, `-finish`, `-report`, `eng-flow-decision-log`, `eng-flow-findings-log`) were invoked from every skill via a `.claude/skills/lib/bin/<script>` path relative to the consuming repo's cwd. That only worked because the skill files were copied directly into a project's own `.claude/skills/` — installed as a real plugin, skills execute from the plugin's own install location, so the relative path resolved nowhere. All invocations across every `SKILL.md`, `CLAUDE.md`, and `PROCESS.md` now use `"${CLAUDE_PLUGIN_ROOT}/skills/lib/bin/<script>"`, matching the convention used by other Claude Code plugins. The scripts' own data paths (`eng-flow/analytics.jsonl` etc.) were already resolved relative to cwd and needed no change — they still write into the consuming project, not the plugin cache.
+
 ## [0.2.0] — 2026-08-18
 
 ### Added

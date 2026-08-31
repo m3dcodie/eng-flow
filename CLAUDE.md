@@ -8,7 +8,7 @@ The `eng-flow-*` skills each log every judgment call they make to `eng-flow/deci
 
 - If a judgment call here carries **knowledge asymmetry** (stakeholder/customer/brand context that can't be inferred from the repo) or **meaningful risk** (costly or hard to reverse), surface it explicitly rather than deciding silently — same taxonomy the skills use.
 - If the user says "guide mode" (or similar) for a given request, apply the same heightened-clarification behavior a skill's `--guide` token triggers: ask rather than default, and summarize what was decided by whom before finishing.
-- When a notable judgment call happens outside a skill's numbered steps, log it the same way: `python3 "${CLAUDE_PLUGIN_ROOT}/skills/lib/bin/eng-flow-decision-log" <context> "<what>" <reason> <mode> <owner> "<description>"` — best-effort, not guaranteed.
+- When a notable judgment call happens outside a skill's numbered steps, log it the same way: `python3 "${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/eng-flow-decision-log" <context> "<what>" <reason> <mode> <owner> "<description>"` — best-effort, not guaranteed.
 
 **Reliability caveat, stated plainly:** a skill's Decision Ledger logging is reliable because every numbered step is a deterministic call site — the checkpoint always fires. Plain conversation has no such structure, and hooks only fire on tool events, not on "a decision happened." So logging here is self-enforced per turn, not checkpoint-guaranteed. Don't treat `eng-flow/decisions.jsonl` as a complete record if the conversation included work outside a skill.
 

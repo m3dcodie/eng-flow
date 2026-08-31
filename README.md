@@ -8,12 +8,67 @@ It's a playbook (`PROCESS.md`) plus a set of live Claude Code skills that implem
 
 ## The model
 
-Two phases, one gate:
+Two phases, one gate between them.
+
+```
+                    ┌─────────────┐
+  new idea/feature  │   ROUTING   │
+  ─────────────────>│  (Phase 0)  │
+                    └──────┬──────┘
+                           │
+        ┌──────────────────┼──────────────────┐
+        v                  v                  v
+  not yet decided     stakeholder-        feature/story in
+  (you decide)        greenlit            existing product
+        │                  │                  │
+        v                  │                  │
+  idea validation           │                  │
+  (trimmed forcing          │                  │
+  questions)                │                  │
+        │                  │                  │
+        └────────┬─────────┘                  │
+                 v                            │
+           ┌───────────┐                       │
+           │ MVP MODE  │<──────────────────────┘
+           └─────┬─────┘
+                 │
+                 v
+       graduation checklist met?
+                 │ yes
+                 v
+         ┌───────────────┐
+         │ PRODUCTION MODE│
+         └───────┬────────┘
+                 v
+   1. Spec/BRD (pure requirements)
+                 v
+   2. Domain model
+                 v
+   3. Architecture
+                 v
+   3.5. Engineering Review
+                 v
+   3.6. UI/UX Design (only if the spec has UI journeys)
+                 v
+   4. Epics / Stories / Tasks
+                 v
+   5. Implementation (per task, on demand)
+                 v
+   6. Code Review (diff, before it ships)
+                 v
+   7. QA (browser-based, front-end only)
+                 v
+   8. Ship (gate check, merge, version, push, PR)
+                 v
+   9. Retro (capture learnings, feeds back into Stage 5)
+                 v
+  10. Analytics (on-demand rollup, read-only)
+```
 
 - **MVP mode** — move fast, autonomously, minimal ceremony. A spec if you have one; a one-page brief if you don't. A flat checklist, a ballpark estimate + go/no-go, then an auto-continuous implement loop that keeps committing until done or a hard stop. No mandated testing/security process beyond that.
-- **Production mode** — entered deliberately, as a judgment call (see "Graduation gate" in `PROCESS.md`), not a checklist artifact. Ten staged, non-overlapping stages: pure requirements → domain model → architecture → engineering review → UI design → epics/stories/tasks → implementation → code review → QA → ship → retro → analytics. Each stage only asks what it owns — requirements never touches tech stack, architecture never re-litigates requirements.
+- **Production mode** — entered deliberately, as a judgment call ("graduation gate" above), not a checklist artifact. Ten staged, non-overlapping stages: pure requirements → domain model → architecture → engineering review → UI design → epics/stories/tasks → implementation → code review → QA → ship → retro → analytics. Each stage only asks what it owns — requirements never touches tech stack, architecture never re-litigates requirements.
 
-See `PROCESS.md` for the full routing logic and what each stage does.
+MVP mode and production mode are not a maturity ranking — they're a match to context. Route on what the work actually needs, not on ambition. See `PROCESS.md` for the full routing logic and what each stage does.
 
 ## Install
 

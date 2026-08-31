@@ -2,6 +2,12 @@
 
 All notable changes to eng-flow are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.2] — 2026-08-31
+
+### Fixed
+
+- `eng-flow-ship` Step 7 opened its PR with plain `gh pr create`, which falls back to GitHub's repo-level default-branch setting. That can silently differ from the `<base>` branch the rest of the skill (Steps 1–3) has actually been operating against — e.g. a project whose real integration base is a staging/develop branch rather than whatever GitHub treats as default. Step 7 now explicitly passes `--base <base>`, targeting the same branch used throughout the skill. Generalized from a project-specific workaround (a consuming project's local skill copy had patched this in independently) into the shared skill so every project benefits, not just that one.
+
 ## [0.2.1] — 2026-08-31
 
 ### Fixed

@@ -76,7 +76,7 @@ Commit any remaining changes from Steps 3-5 (merge resolution, version bump) wit
 
 ## Step 7 — Open a PR
 
-If the remote has a PR workflow (GitHub), open one (`gh pr create`) with a description covering what changed and why. This is the default — matches local-dev/containers/GitHub practice. Not a cloud deploy step; if the project's actual deployment is more than "merge triggers CI," that's already documented in `architecture.md`'s deployment section, not this skill's concern.
+If the remote has a PR workflow (GitHub), open one (`gh pr create --base <base>`) with a description covering what changed and why — target the same `<base>` branch this skill has used since Step 1, not GitHub's repo-level default-branch setting, which can differ (e.g. a project whose actual base is a staging/integration branch rather than the branch GitHub treats as default). This is the default — matches local-dev/containers/GitHub practice. Not a cloud deploy step; if the project's actual deployment is more than "merge triggers CI," that's already documented in `architecture.md`'s deployment section, not this skill's concern.
 
 ---
 

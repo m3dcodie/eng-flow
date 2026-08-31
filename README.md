@@ -1,6 +1,6 @@
 # eng-flow
 
-**Version:** 0.2.1 — see [CHANGELOG.md](CHANGELOG.md) for release history.
+[![Latest Release](https://img.shields.io/github/v/release/m3dcodie/eng-flow)](https://github.com/m3dcodie/eng-flow/releases) — see [CHANGELOG.md](CHANGELOG.md) for release history.
 
 A lightweight, tool-agnostic engineering process — from rapid MVP to production-grade — for one engineer or a shared team.
 

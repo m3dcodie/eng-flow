@@ -2,6 +2,12 @@
 
 All notable changes to eng-flow are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.3] — 2026-08-31
+
+### Fixed
+
+- The 0.2.1 `CLAUDE_PLUGIN_ROOT` fix used `${CLAUDE_PLUGIN_ROOT}/skills/lib/bin/<script>`, assuming skills live at the plugin root's default `skills/` directory. eng-flow actually declares a non-default location — `plugin.json`'s `"skills": "./.claude/skills"` — so the real path is `${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/<script>`. `CLAUDE_PLUGIN_ROOT` always resolves to the plugin's repo root regardless of where its `skills` field points, so the `.claude/` segment was missing. Confirmed via a real install: with the 0.2.1 path the script didn't exist on disk; with `.claude/` restored, `eng-flow-analytics-report` runs correctly against a consuming project's `eng-flow/analytics.jsonl`.
+
 ## [0.2.2] — 2026-08-31
 
 ### Fixed

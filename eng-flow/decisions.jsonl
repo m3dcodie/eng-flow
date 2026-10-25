@@ -1,0 +1,1 @@
+{"ts": "2026-10-25T23:46:25Z", "skill": "session-persistence", "step": "one shared draft/resume mechanism for interview stages", "story": null, "reason": "risk", "mode": "open_question", "owner": "user", "description": "User agreed to fix within-stage persistence (layer 2b) with one shared mechanism across interview stages instead of per-stage fixes"}

@@ -126,8 +126,18 @@ def sha256(path):
     return h.hexdigest()
 
 
+def ensure_ignored(d):
+    # Drafts are local, in-flight state: never committed. A self-ignoring
+    # .gitignore keeps them out of git in any project, no setup needed.
+    gi = os.path.join(d, ".gitignore")
+    if not os.path.exists(gi):
+        with open(gi, "w") as f:
+            f.write("*\n")
+
+
 def write_atomic(path, data):
     os.makedirs(os.path.dirname(path), exist_ok=True)
+    ensure_ignored(os.path.dirname(path))
     fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".tmp-", suffix=".json")
     try:
         with os.fdopen(fd, "w") as f:

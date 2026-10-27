@@ -1,6 +1,6 @@
 # eng-flow draft and resume (shared reference)
 
-**Status:** implemented for Stage 1 (`eng-flow-spec`, live-tested T6, 2026-10-26) and rolled out to Stages 2 (`eng-flow-domain-model`), 3 (`eng-flow-architecture`), 3.5 (`eng-flow-eng-review`), 3.6 (`eng-flow-ui-design`) and 4 (`eng-flow-epics-stories-tasks`, Steps 0–6 only) on 2026-10-27. The rollout is not yet live-tested. Whether drafts are committed or gitignored is still open.
+**Status:** implemented for Stage 1 (`eng-flow-spec`, live-tested T6, 2026-10-26) and rolled out to Stages 2 (`eng-flow-domain-model`), 3 (`eng-flow-architecture`), 3.5 (`eng-flow-eng-review`), 3.6 (`eng-flow-ui-design`) and 4 (`eng-flow-epics-stories-tasks`, Steps 0–6 only) on 2026-10-27. The rollout is not yet live-tested. Drafts are gitignored (T8, 2026-10-27).
 **Origin:** D4 in `docs/improvements/session-mgmgt.md`.
 
 The goal is to save as the interview goes, so a crash or closed terminal loses at most the step (or loop item) in progress, never the user's earlier answers.
@@ -18,7 +18,7 @@ Each stage's `SKILL.md` keeps its own Step 0 trigger and per-step `save` calls i
 - **When it saves:** as the last action of every numbered step. Per-item loops also save after each item, as `in_progress` (below).
 - **What it saves:** the agreed answers in short form, not the conversation, plus any expensive output a resume shouldn't redo (subagent findings, research fetches).
 - **Skipped steps are recorded as skipped**, so a resume doesn't ask them again.
-- **Committed or gitignored:** not decided yet.
+- **Gitignored, never committed.** On first write the helper creates `eng-flow/.drafts/.gitignore` containing `*`, so drafts stay out of git in any project with no setup. Decided by the user, 2026-10-27 (T8).
 
 ## Draft shape
 

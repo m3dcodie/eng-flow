@@ -321,19 +321,13 @@ def age(updated):
     return "just now"
 
 
-def cmd_list(args):
-    if len(args) != 1:
-        warn(USAGE)
-        return 0
-    skill = args[0]
-    if not safe(skill):
-        warn(f"refusing unsafe skill: {skill!r}")
-        return 0
-    d = drafts_dir()
+def summaries(d, want=""):
+    # One summary per readable draft in d whose file name starts with want
+    # ("" = every draft). Shared with eng-flow-session-context, which
+    # imports this file -- keep the keys stable.
+    out = []
     if not os.path.isdir(d):
-        return 0
-    rows = []
-    want = f"{prefix(skill)}--"
+        return out
     for name in os.listdir(d):
         if not (name.startswith(want) and name.endswith(".json")):
             continue
@@ -355,9 +349,28 @@ def cmd_list(args):
             if isinstance(v, dict) and v.get("status") == "in_progress":
                 name_part = f" ({v['name']})" if v.get("name") else ""
                 stopped += f", Step {step_key(k)}{name_part} in progress"
-        updated = draft.get("updated") or ""
-        fields = (slug, draft.get("topic") or "(no topic)", stopped, age(updated))
-        rows.append((updated, "\t".join(oneline(f) for f in fields)))
+        out.append({
+            "file": name,
+            "slug": slug,
+            "topic": draft.get("topic") or "(no topic)",
+            "stopped": stopped,
+            "updated": draft.get("updated") or "",
+        })
+    return out
+
+
+def cmd_list(args):
+    if len(args) != 1:
+        warn(USAGE)
+        return 0
+    skill = args[0]
+    if not safe(skill):
+        warn(f"refusing unsafe skill: {skill!r}")
+        return 0
+    rows = []
+    for s in summaries(drafts_dir(), f"{prefix(skill)}--"):
+        fields = (s["slug"], s["topic"], s["stopped"], age(s["updated"]))
+        rows.append((s["updated"], "\t".join(oneline(f) for f in fields)))
     for _, line in sorted(rows, reverse=True):
         print(line)
     return 0

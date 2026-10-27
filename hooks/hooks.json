@@ -1,0 +1,17 @@
+{
+  "description": "eng-flow: after compaction or a resumed session, point the model back at in-progress drafts, stories and MVP checklists. Read-only. Opt out with ENG_FLOW_NO_HOOKS=1.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "compact|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/eng-flow-session-context\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

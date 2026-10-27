@@ -85,6 +85,12 @@ The plugin bundles its own Playwright MCP server (`@playwright/mcp`, pinned vers
 browser-based skills (`eng-flow-browse`, `eng-flow-qa`) work out of the box with no separate
 `claude mcp add` step.
 
+It also registers one hook: after a context compaction or a resumed session, a read-only
+script reminds Claude of unfinished eng-flow drafts, stories and MVP checklists in the
+project, so a long interview stage isn't continued from a lossy summary. It prints nothing
+in projects without an `eng-flow/` folder. Set `ENG_FLOW_NO_HOOKS=1` to turn it off. See
+`PROCESS.md`, "Session hook".
+
 **Local / development** (no push required, edits take effect immediately):
 
 ```bash
@@ -106,6 +112,8 @@ PROCESS.md                       # the playbook: routing + phase gate
 .claude-plugin/
   plugin.json                    # plugin manifest — skills field points at .claude/skills/
   marketplace.json               # marketplace listing, installed via /plugin marketplace add
+hooks/
+  hooks.json                     # SessionStart (compact|resume) — in-progress work reminder
 .claude/skills/
   eng-flow-mvp/                  # MVP mode — one-pager, checklist, auto-implement loop, ship
   eng-flow-browse/               # utility — general-purpose visual verification (Playwright MCP)

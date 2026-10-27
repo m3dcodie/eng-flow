@@ -1,0 +1,212 @@
+#!/usr/bin/env python3
+"""
+eng-flow session context: remind the model of in-progress work after a
+context compaction or a resumed session.
+
+Run by the plugin's SessionStart hook (hooks/hooks.json, matcher
+compact|resume). Whatever it prints to stdout is added to the model's
+context. Reads only: writes nothing, calls no model, runs no subprocess.
+
+Lists, newest first, at most MAX_LINES lines in all:
+  - drafts in eng-flow/.drafts/ (parsed by eng-flow-draft's summaries())
+  - stories whose tasks.md is started but not finished
+  - MVP checklists with unchecked items
+and, when any draft is listed, one line telling the model to re-read it.
+A draft whose recorded input files changed since it started (the same
+check as `eng-flow-draft check`) is listed first, with the files named,
+plus a line telling the model to stop and flag it before saving more.
+Hashing those inputs is the only file content read beyond eng-flow/.
+Prints nothing when the project has no eng-flow/ or nothing in progress.
+
+Spec: docs/improvements/session-start-hook.md
+
+Set ENG_FLOW_NO_HOOKS=1 to turn it off. Never blocks the session: on
+any error it prints a warning to stderr and exits 0 with no stdout.
+Output is ASCII only, so an unusual locale can't break the print.
+"""
+import glob
+import importlib.machinery
+import importlib.util
+import json
+import os
+import re
+import sys
+
+MAX_LINES = 20
+HERE = os.path.dirname(os.path.abspath(__file__))
+BOX = re.compile(r"^\s*[-*]\s+\[([ xX])\]\s*(.*)$")
+TASK = re.compile(r"^##\s+Task\s+[^:]*:\s*(.*)$")
+
+
+def load_draft_helper():
+    path = os.path.join(HERE, "eng-flow-draft")
+    loader = importlib.machinery.SourceFileLoader("eng_flow_draft", path)
+    spec = importlib.util.spec_from_loader("eng_flow_draft", loader)
+    mod = importlib.util.module_from_spec(spec)
+    loader.exec_module(mod)
+    return mod
+
+
+def ascii_line(text):
+    text = " ".join(str(text).split())
+    for a, b in (("—", "-"), ("–", "-"), ("…", "..."),
+                 ("‘", "'"), ("’", "'"), ("“", '"'), ("”", '"')):
+        text = text.replace(a, b)
+    return text.encode("ascii", "replace").decode("ascii")
+
+
+def short(text, n=80):
+    text = ascii_line(text)
+    return text if len(text) <= n else text[:n - 3] + "..."
+
+
+def read(path):
+    # An unreadable file is skipped with a warning, like a corrupt draft,
+    # so one bad file can't hide everything else.
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            return f.read()
+    except OSError as e:
+        print(f"eng-flow-session-context: warning: skipping {path}: {e}", file=sys.stderr)
+        return ""
+
+
+def story_progress(text):
+    # tasks.md: a "## Task N: title" section is done when it has boxes and
+    # none are unchecked -- the same "first unchecked task" rule
+    # eng-flow-implement uses. A file with no Task headings counts each box.
+    tasks, current, any_checked = [], None, False
+    for line in text.splitlines():
+        m = TASK.match(line)
+        if m:
+            current = {"title": m.group(1).strip(), "boxes": 0, "open": 0}
+            tasks.append(current)
+            continue
+        b = BOX.match(line)
+        if not b:
+            continue
+        checked = b.group(1) != " "
+        any_checked = any_checked or checked
+        if current is None:
+            tasks.append({"title": b.group(2).strip(), "boxes": 1, "open": 0 if checked else 1})
+        else:
+            current["boxes"] += 1
+            current["open"] += 0 if checked else 1
+    tasks = [t for t in tasks if t["boxes"]]
+    done = sum(1 for t in tasks if not t["open"])
+    nxt = next((t["title"] for t in tasks if t["open"]), None)
+    return done, len(tasks), nxt, any_checked
+
+
+def checklist_item(text):
+    # MVP item: "- [ ] Task: <title> -- acceptance: ... -- files: ..."
+    text = re.sub(r"^Task:\s*", "", text)
+    return re.split(r"\s+(?:—|--|-)\s+acceptance:", text, maxsplit=1)[0]
+
+
+def mtime(path):
+    try:
+        return os.path.getmtime(path)
+    except OSError:
+        return 0
+
+
+def newest_first(paths):
+    return sorted(paths, key=mtime, reverse=True)
+
+
+def draft_lines(root, helper):
+    # A resumed session still has its whole conversation, so it has no
+    # reason to re-read a draft -- but it can't know an input changed on
+    # disk. Run the drift check here and state it as a fact.
+    rows = helper.summaries(os.path.join(root, "eng-flow", ".drafts"))
+    rows.sort(key=lambda s: s["updated"], reverse=True)
+    lines, drifted = [], []
+    for s in rows:
+        line = (f"- Draft: eng-flow/.drafts/{ascii_line(s['file'])} - {ascii_line(s['stopped'])}, "
+                f"{helper.age(s['updated'])}")
+        changed = helper.drift(s["inputs"], root)
+        if changed:
+            line += ". INPUT CHANGED since this draft started: " + ", ".join(
+                f"{ascii_line(name)} ({state})" for name, state in changed)
+            drifted.append(line)
+        else:
+            lines.append(line)
+    return drifted + lines, bool(drifted)
+
+
+def story_lines(root):
+    out = []
+    for p in newest_first(glob.glob(os.path.join(root, "eng-flow", "backlog", "stories", "*", "tasks.md"))):
+        done, total, nxt, started = story_progress(read(p))
+        if not started or nxt is None:
+            continue
+        slug = os.path.basename(os.path.dirname(p))
+        out.append(f"- Story: {ascii_line(slug)} - eng-flow/backlog/stories/{ascii_line(slug)}/tasks.md "
+                   f"{done}/{total} tasks done, next: \"{short(nxt)}\"")
+    return out
+
+
+def mvp_lines(root):
+    out = []
+    for p in newest_first(glob.glob(os.path.join(root, "eng-flow", "mvp", "*", "checklist.md"))):
+        boxes = [b for b in (BOX.match(l) for l in read(p).splitlines()) if b]
+        open_items = [b.group(2) for b in boxes if b.group(1) == " "]
+        if not open_items:
+            continue
+        slug = os.path.basename(os.path.dirname(p))
+        out.append(f"- MVP: {ascii_line(slug)} - eng-flow/mvp/{ascii_line(slug)}/checklist.md "
+                   f"{len(boxes) - len(open_items)}/{len(boxes)} done, "
+                   f"next: \"{short(checklist_item(open_items[0]))}\"")
+    return out
+
+
+def build(root, source):
+    if not os.path.isdir(os.path.join(root, "eng-flow")):
+        return []
+    drafts, drifted = draft_lines(root, load_draft_helper())
+    items = drafts + story_lines(root) + mvp_lines(root)
+    if not items:
+        return []
+    budget = MAX_LINES - 1 - (1 if drafts else 0) - (1 if drifted else 0)
+    if len(items) > budget:
+        items = items[:budget - 1] + [f"- ... and {len(items) - (budget - 1)} more"]
+    lines = [f"[eng-flow] In-progress eng-flow work in this project (session {ascii_line(source)}):"] + items
+    if drafts:
+        guide = os.path.normpath(os.path.join(HERE, "..", "draft-resume.md"))
+        lines.append(
+            "[eng-flow] If you were in the middle of an eng-flow stage: before your next step, Read "
+            f"its draft file above and {ascii_line(guide)}. The saved steps are the record, not "
+            "your summary of them. Keep saving at the end of every step.")
+    if drifted:
+        lines.append(
+            "[eng-flow] INPUT CHANGED: before you save a step or write any file for a stage marked "
+            "INPUT CHANGED above, tell the user which input file changed and offer *review* (check the "
+            "saved steps against it) or *discard*, as draft-resume.md describes. A \"continue\" or "
+            "\"yes\" that doesn't mention the change is not approval of a step you showed before it.")
+    return lines
+
+
+def main():
+    if os.environ.get("ENG_FLOW_NO_HOOKS", "") not in ("", "0"):
+        return 0
+    payload = {}
+    try:
+        payload = json.loads(sys.stdin.read() or "{}")
+    except (ValueError, OSError):
+        pass
+    if not isinstance(payload, dict):
+        payload = {}
+    root = os.environ.get("CLAUDE_PROJECT_DIR") or payload.get("cwd") or os.getcwd()
+    lines = build(root, payload.get("source") or "start")
+    if lines:
+        sys.stdout.write("\n".join(lines) + "\n")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except Exception as e:  # never block the session
+        print(f"eng-flow-session-context: warning: {e}", file=sys.stderr)
+        sys.exit(0)

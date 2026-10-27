@@ -4,6 +4,10 @@ All notable changes to eng-flow are documented here. Format loosely follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- A `SessionStart` hook (`hooks/hooks.json`, matcher `compact|resume`), the plugin's first. After a context compaction or a resumed session, the new read-only `eng-flow-session-context` script lists unfinished drafts (with the step each stopped at), started stories with their next task, and open MVP checklists. When a draft is listed, it tells Claude to re-read it and `lib/draft-resume.md` before the next step. This closes the gap drafts leave: a mid-stage compaction doesn't re-run Step 0. The hook also runs the input-drift check itself. A draft whose inputs (e.g. `spec.md`) changed since it started is flagged with the files named, and the model is told to offer *review* or *discard* before saving more. Without this, a live test showed a resumed session took "continue" as approval and wrote `architecture.md` over a changed spec. The hook is silent outside eng-flow projects, capped at 20 lines and never blocks the session. `ENG_FLOW_NO_HOOKS=1` turns it off. No `PreCompact` / `Stop` / `SessionEnd` hooks: they can't save what's only in the model's context. `eng-flow-draft` gains shared `summaries()` and `drift()` functions; `list` and `check` output are unchanged. Design: `docs/improvements/session-start-hook.md`.
+
 ## [0.3.0] — 2026-10-27
 
 ### Added

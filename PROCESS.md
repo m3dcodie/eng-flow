@@ -252,6 +252,24 @@ Three fields per entry:
 
 No dedicated rollup skill yet (unlike Analytics' Stage 10) — one can be added once real `decisions.jsonl` data exists to design a report format against.
 
+### Session hook (cross-cutting, not a sequential stage)
+
+The plugin registers one hook, in `hooks/hooks.json`: `SessionStart` with matcher `compact|resume`. It covers the case drafts can't. After a crash or restart, a stage's Step 0 finds its draft when the skill runs again. After a mid-stage compaction the session carries on, Step 0 doesn't run again, and the summary may have lost the draft's details. So after a compaction, or when an old session is resumed, `eng-flow-session-context` (under `${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/`) prints a short block that Claude Code adds to the model's context. The block lists:
+
+- unfinished drafts in `eng-flow/.drafts/`, with the step each stopped at
+- stories whose `tasks.md` is started but not finished, with the next task
+- MVP checklists with unchecked items, with the next item
+
+When a draft is listed, the block ends with an instruction to re-read it and `lib/draft-resume.md` before the next step.
+
+- **Read-only.** It writes nothing, calls no model and runs no subprocess. It prints nothing in a project without `eng-flow/` or with nothing in progress.
+- **Bounded.** At most 20 lines, ASCII only, and about 25 ms. It never blocks the session: on error it warns on stderr and exits 0.
+- **Not on `startup` or `clear`.** Step 0 already lists drafts when a stage starts, and `/clear` between implement tasks is meant to start fresh.
+- **Opt-out:** set `ENG_FLOW_NO_HOOKS=1`.
+- **No `PreCompact`, `Stop` or `SessionEnd` hooks.** They can't save what only exists in the model's context. Saving at the end of every step already does that job.
+
+Design and rationale: `docs/improvements/session-start-hook.md`.
+
 ### Stage 10 — Analytics
 
 Read-only, on-demand. Skill: `.claude/skills/eng-flow-analytics/SKILL.md`.

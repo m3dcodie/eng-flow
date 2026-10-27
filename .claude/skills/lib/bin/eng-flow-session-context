@@ -1,0 +1,38 @@
+#!/usr/bin/env python3
+"""
+eng-flow session context: remind the model of in-progress work after a
+context compaction or a resumed session.
+
+Run by the plugin's SessionStart hook (hooks/hooks.json, matcher
+compact|resume). Whatever it prints to stdout is added to the model's
+context. Reads only: writes nothing, calls no model, runs no subprocess.
+
+T1 stub: prints one fixed line so hook registration can be checked.
+The real reader comes in T3 (docs/improvements/session-start-hook.md).
+
+Set ENG_FLOW_NO_HOOKS=1 to turn it off. Never blocks the session: on
+any error it prints a warning to stderr and exits 0.
+"""
+import os
+import sys
+
+
+def main():
+    if os.environ.get("ENG_FLOW_NO_HOOKS") == "1":
+        return 0
+    source = "unknown"
+    try:
+        import json
+        source = json.load(sys.stdin).get("source", "unknown")
+    except Exception:
+        pass
+    print(f"[eng-flow] session-context stub fired (source={source})")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except Exception as e:  # never block the session
+        print(f"eng-flow-session-context: {e}", file=sys.stderr)
+        sys.exit(0)

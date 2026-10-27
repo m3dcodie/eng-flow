@@ -260,7 +260,7 @@ The plugin registers one hook, in `hooks/hooks.json`: `SessionStart` with matche
 - stories whose `tasks.md` is started but not finished, with the next task
 - MVP checklists with unchecked items, with the next item
 
-When a draft is listed, the block ends with an instruction to re-read it and `lib/draft-resume.md` before the next step.
+When a draft is listed, the block ends with an instruction to re-read it and `lib/draft-resume.md` before the next step. The hook also runs the draft's input-drift check itself, because a resumed session doesn't run Step 0 again and so would never call `check`. A draft whose inputs changed is listed first, with the files named, and the model is told to flag the change and offer *review* or *discard* before saving anything more.
 
 - **Read-only.** It writes nothing, calls no model and runs no subprocess. It prints nothing in a project without `eng-flow/` or with nothing in progress.
 - **Bounded.** At most 20 lines, ASCII only, and about 25 ms. It never blocks the session: on error it warns on stderr and exits 0.

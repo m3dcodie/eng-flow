@@ -12,6 +12,10 @@ Lists, newest first, at most MAX_LINES lines in all:
   - stories whose tasks.md is started but not finished
   - MVP checklists with unchecked items
 and, when any draft is listed, one line telling the model to re-read it.
+A draft whose recorded input files changed since it started (the same
+check as `eng-flow-draft check`) is listed first, with the files named,
+plus a line telling the model to stop and flag it before saving more.
+Hashing those inputs is the only file content read beyond eng-flow/.
 Prints nothing when the project has no eng-flow/ or nothing in progress.
 
 Spec: docs/improvements/session-start-hook.md
@@ -112,10 +116,23 @@ def newest_first(paths):
 
 
 def draft_lines(root, helper):
+    # A resumed session still has its whole conversation, so it has no
+    # reason to re-read a draft -- but it can't know an input changed on
+    # disk. Run the drift check here and state it as a fact.
     rows = helper.summaries(os.path.join(root, "eng-flow", ".drafts"))
     rows.sort(key=lambda s: s["updated"], reverse=True)
-    return [f"- Draft: eng-flow/.drafts/{ascii_line(s['file'])} - {ascii_line(s['stopped'])}, "
-            f"{helper.age(s['updated'])}" for s in rows]
+    lines, drifted = [], []
+    for s in rows:
+        line = (f"- Draft: eng-flow/.drafts/{ascii_line(s['file'])} - {ascii_line(s['stopped'])}, "
+                f"{helper.age(s['updated'])}")
+        changed = helper.drift(s["inputs"], root)
+        if changed:
+            line += ". INPUT CHANGED since this draft started: " + ", ".join(
+                f"{ascii_line(name)} ({state})" for name, state in changed)
+            drifted.append(line)
+        else:
+            lines.append(line)
+    return drifted + lines, bool(drifted)
 
 
 def story_lines(root):
@@ -147,11 +164,11 @@ def mvp_lines(root):
 def build(root, source):
     if not os.path.isdir(os.path.join(root, "eng-flow")):
         return []
-    drafts = draft_lines(root, load_draft_helper())
+    drafts, drifted = draft_lines(root, load_draft_helper())
     items = drafts + story_lines(root) + mvp_lines(root)
     if not items:
         return []
-    budget = MAX_LINES - 1 - (1 if drafts else 0)
+    budget = MAX_LINES - 1 - (1 if drafts else 0) - (1 if drifted else 0)
     if len(items) > budget:
         items = items[:budget - 1] + [f"- ... and {len(items) - (budget - 1)} more"]
     lines = [f"[eng-flow] In-progress eng-flow work in this project (session {ascii_line(source)}):"] + items
@@ -161,6 +178,12 @@ def build(root, source):
             "[eng-flow] If you were in the middle of an eng-flow stage: before your next step, Read "
             f"its draft file above and {ascii_line(guide)}. The saved steps are the record, not "
             "your summary of them. Keep saving at the end of every step.")
+    if drifted:
+        lines.append(
+            "[eng-flow] INPUT CHANGED: before you save a step or write any file for a stage marked "
+            "INPUT CHANGED above, tell the user which input file changed and offer *review* (check the "
+            "saved steps against it) or *discard*, as draft-resume.md describes. A \"continue\" or "
+            "\"yes\" that doesn't mention the change is not approval of a step you showed before it.")
     return lines
 
 

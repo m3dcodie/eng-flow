@@ -292,15 +292,27 @@ def cmd_check(args):
         warn(f"existing draft unreadable: {e}")
         return 0
     inputs = draft.get("inputs") if isinstance(draft, dict) else None
-    for name, digest in sorted((inputs or {}).items()):
+    for name, state in drift(inputs):
+        print(f"{oneline(name)}\t{state}")
+    return 0
+
+
+def drift(inputs, root=None):
+    # (file, "changed" | "missing") for each recorded input that no longer
+    # matches its hash. Paths are relative to the project root (root, or
+    # the cwd). Shared with eng-flow-session-context.
+    out = []
+    if not isinstance(inputs, dict):
+        return out
+    for name, digest in sorted(inputs.items()):
         try:
-            if sha256(name) != digest:
-                print(f"{oneline(name)}\tchanged")
+            if sha256(os.path.join(root, name) if root else name) != digest:
+                out.append((name, "changed"))
         except FileNotFoundError:
-            print(f"{oneline(name)}\tmissing")
+            out.append((name, "missing"))
         except OSError as e:
             warn(f"could not hash {name}: {e}")
-    return 0
+    return out
 
 
 def oneline(value):
@@ -355,6 +367,7 @@ def summaries(d, want=""):
             "topic": draft.get("topic") or "(no topic)",
             "stopped": stopped,
             "updated": draft.get("updated") or "",
+            "inputs": draft.get("inputs") if isinstance(draft.get("inputs"), dict) else {},
         })
     return out
 

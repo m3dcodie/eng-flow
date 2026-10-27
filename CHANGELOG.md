@@ -4,6 +4,8 @@ All notable changes to eng-flow are documented here. Format loosely follows [Kee
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-10-27
+
 ### Added
 
 - `eng-flow-spec` (Stage 1) now saves as it goes and can resume. Each numbered step ends by writing its agreed answers to `eng-flow/.drafts/spec--<dated-slug>.json`, so a crash or closed terminal loses at most the step in progress instead of the whole interview. Step 0 lists unfinished drafts and resumes one at the next step, with review and discard on request; the draft is deleted only after `spec.md` is saved. Backed by a new shared helper, `eng-flow-draft` (`save`, `list`, `truncate`, `clear`), under `.claude/skills/lib/bin/`, which never blocks the skill on error. The spec folder's dated slug is now computed at Step 0 rather than Step 7. Design: `.claude/skills/lib/draft-resume.md`. Drafts are gitignored: the helper writes `eng-flow/.drafts/.gitignore` (`*`) on first use.

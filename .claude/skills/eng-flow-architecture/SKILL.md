@@ -30,15 +30,35 @@ At the start of every numbered step below (including Step 0), run `python3 "${CL
 
 Check `$ARGUMENTS` for a `--guide` token; if present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 10's report adds a "Decisions I made / decisions you made" summary. Log every decision point via `python3 "${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/eng-flow-decision-log" eng-flow-architecture "<step>" <reason> <mode> <owner> "<description>" "<dated-slug>"`. See `eng-flow-spec`'s Decision Ledger section for the taxonomy and why. Rollup/analysis: `eng-flow-retro` Step 1 (Stage 9).
 
+## Drafts
+
+This stage saves as it goes to `eng-flow/.drafts/architecture--<dated-slug>.json` (`<dated-slug>` is the spec folder's), so a crash loses at most the step in progress. The shared rules (Resume, Review, Discard, input drift) are in `${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/draft-resume.md` — Read it before resuming, reviewing or discarding. Every save in this file is this call, with the step's JSON on stdin — agreed answers in short form, JSON-escaped:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/eng-flow-draft" save eng-flow-architecture "<dated-slug>" <step> <<'EOF'
+{"status": "done", "name": "<step name>", "answers": {…}}
+EOF
+```
+
+Degrades silently like the analytics scripts — a failed save prints a warning and the run carries on.
+
 ## Step 0 — Find the inputs
 
-Look for `eng-flow/specs/*/spec.md` and the matching `domain-model.md` in the same folder. If more than one spec folder exists, ask which one this run is for.
+Look for `eng-flow/specs/*/spec.md` and the matching `domain-model.md` in the same folder. Check for drafts: `python3 "${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/eng-flow-draft" list eng-flow-architecture` — one line per draft, starting with the spec folder's `<dated-slug>`. If more than one spec folder exists, ask which one this run is for; a folder with a draft gets "draft: stopped after Step n, age" in its option description. If the chosen folder (or the only one) has a draft → **Resume** (`draft-resume.md`) — no further Step 0 questions.
 
 If `spec.md` is missing: offer via `AskUserQuestion` — "No spec found for this. eng-flow-spec captures the problem, audience, and scope this stage needs to ground decisions in. Run it now?" Options: A) Run eng-flow-spec now (resume architecture right after) B) Cancel — I'll run it myself. If A, invoke `eng-flow-spec` with the `Skill` tool, then re-run this check once it saves. If B, stop here.
 
 If `spec.md` exists but `domain-model.md` is missing: same offer, naming `eng-flow-domain-model` instead — its entities, relationships, and conceptual diagram are this step's other required input.
 
 Read the spec's constraints (Phase 1, "what constraints came with the approval") and non-functional requirements, and the domain model's entities/relationships/conceptual diagram — these are the inputs to every step below.
+
+As the last action of this step (new run only — not if it stopped for a missing input), save step 0 (`"name": "Find the inputs"`) with `topic` (the spec's title) and `spec_folder`, then record the inputs:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/eng-flow-draft" inputs eng-flow-architecture "<dated-slug>" "eng-flow/specs/<dated-slug>/spec.md" "eng-flow/specs/<dated-slug>/domain-model.md"
+```
+
+**Stale on review:** an answer from Steps 1–6 changed after Step 7 was saved — the ADRs and the draft may no longer match it. `truncate ... 6`, re-save the changed steps, continue at Step 7.
 
 ---
 
@@ -50,6 +70,8 @@ Apply **boring by default**: prefer proven, well-understood technology unless th
 
 Log it: `risk silent_decide ai_default "tech stack: reused existing / boring-by-default choice"` if no relitigation was needed, otherwise `risk open_question user_confirmed "tech stack: <choice> — reason: <stated reason>"`.
 
+As the last action of this step, save step 1 (`"name": "Tech stack"`) with `stack` (one entry per layer with `choice` and `reason`) and `reused_existing` (true/false).
+
 ---
 
 ## Step 2 — System diagram
@@ -60,6 +82,8 @@ Draft it as mermaid first — that's what goes in the saved file. Then ask once:
 
 Log it: `risk silent_decide ai_default "diagram rendering: skipped, mermaid source only"` if the default applies, otherwise `open_question user_confirmed`.
 
+As the last action of this step, save step 2 (`"name": "System diagram"`) with `mermaid` (the diagram source) and `artifact_url` (or `null`).
+
 ---
 
 ## Step 3 — Frontend/backend separation
@@ -67,6 +91,8 @@ Log it: `risk silent_decide ai_default "diagram rendering: skipped, mermaid sour
 Decide based on the actual complexity surfaced in Stage 2 — number of domains, their coupling, team size — not by default. If scope is small, say so and recommend staying monolithic; splitting into separate frontend/backend (or further into services) is a decision to justify, not a default to assume. If it does split, name the boundary explicitly (what runs where).
 
 Log it: `risk silent_decide ai_inferred "frontend/backend separation: <monolith|split> — <reasoning from Stage 2 complexity>"`.
+
+As the last action of this step, save step 3 (`"name": "Separation"`) with `decision` (`monolith` or `split`), `boundary` (what runs where, if split) and `reasoning`.
 
 ---
 
@@ -80,6 +106,8 @@ Apply the same discipline `agent-skills`' `api-and-interface-design` documents:
 - **One-Version Rule** — design so consumers never have to choose between multiple versions of the same interface.
 
 Depth matches scope — a small feature needs a short list of endpoint shapes, not a full OpenAPI spec, unless the scope actually warrants one.
+
+As the last action of this step, save step 4 (`"name": "API contracts"`) with `contracts_markdown` — the agreed contracts as written for the API Contracts section, JSON-escaped.
 
 ---
 
@@ -100,6 +128,8 @@ Log it: `risk silent_decide ai_default "NFR target for <dimension>: assumed <val
 
 Log it: `risk knowledge_asymmetry open_question user_confirmed "security policy: established — N rules | declined | already existed"`.
 
+As the last action of this step, save step 5 (`"name": "NFRs"`) with `nfrs` (one entry per dimension with `target` and `assumed`: true when no user-given number), and `security_policy` (`established`, `declined` or `existed`). `security-policy.md` is written during this step, not at Step 9, so a resume past Step 5 finds it already on disk.
+
 ---
 
 ## Step 6 — Deployment
@@ -109,6 +139,8 @@ Default to what the user actually does, not an assumed cloud target: local devel
 Add a short **cloud-ready notes** subsection: what would need to change to deploy this to a cloud target later (which components would need it, roughly what'd be involved) — informational, not a decision to act on now. This is what makes the doc useful to another engineer picking this up later without forcing a cloud decision that isn't warranted yet.
 
 Log it: `risk silent_decide ai_inferred "deployment topology: matched actual practice (<local/containers/GitHub>)"`.
+
+As the last action of this step, save step 6 (`"name": "Deployment"`) with `topology`, `ci`, `iac` and `cloud_ready_notes`.
 
 ---
 
@@ -140,6 +172,8 @@ Accepted
 ## Consequences
 [What this makes easier, harder, or forecloses]
 ```
+
+As the last action of this step, save step 7 (`"name": "ADRs"`) with `convention` (matched location/numbering, or `default`) and `adrs` — one entry per ADR with `path` and `markdown` (the full ADR text, JSON-escaped); an empty list if none are warranted. Step 9 writes these files.
 
 ---
 
@@ -175,11 +209,15 @@ Accepted
 
 Show the draft, ask: "Does this match what you'd actually build, or anything to change?" Log it: `risk open_question <user_confirmed|user_revised> "draft accepted|draft revised: <what changed>"`.
 
+As the last action of this step, once the user has confirmed, save step 8 (`"name": "Draft"`) with `architecture_markdown` — the full confirmed text, JSON-escaped — and `revisions` (empty if accepted as-is). If the revisions changed an ADR, re-save step 7 with the updated ADR text first.
+
 ---
 
 ## Step 9 — Save
 
-Write `architecture.md` to the same spec folder (`eng-flow/specs/<dated-slug>/architecture.md`), and any ADR files to `eng-flow/specs/<dated-slug>/adr/` (or the matched existing convention's location).
+Write `architecture.md` to the same spec folder (`eng-flow/specs/<dated-slug>/architecture.md`), and any ADR files to `eng-flow/specs/<dated-slug>/adr/` (or the matched existing convention's location). When resuming, write them from the draft's saved `architecture_markdown` (step 8) and `adrs` (step 7).
+
+As the last action of this step, once every file is written, delete the draft: `python3 "${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/eng-flow-draft" clear eng-flow-architecture "<dated-slug>"`. If any write failed, skip this and keep the draft; tell the user which file didn't save.
 
 ---
 

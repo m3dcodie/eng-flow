@@ -2,6 +2,13 @@
 
 All notable changes to eng-flow are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+
+- `eng-flow-spec` (Stage 1) now saves as it goes and can resume. Each numbered step ends by writing its agreed answers to `eng-flow/.drafts/spec--<dated-slug>.json`, so a crash or closed terminal loses at most the step in progress instead of the whole interview. Step 0 lists unfinished drafts and resumes one at the next step, with review and discard on request; the draft is deleted only after `spec.md` is saved. Backed by a new shared helper, `eng-flow-draft` (`save`, `list`, `truncate`, `clear`), under `.claude/skills/lib/bin/`, which never blocks the skill on error. The spec folder's dated slug is now computed at Step 0 rather than Step 7. Design: `.claude/skills/lib/draft-resume.md`. Drafts are gitignored: the helper writes `eng-flow/.drafts/.gitignore` (`*`) on first use.
+- Draft and resume rolled out to `eng-flow-domain-model` (Stage 2), `eng-flow-architecture` (3), `eng-flow-eng-review` (3.5), `eng-flow-ui-design` (3.6) and `eng-flow-epics-stories-tasks` (4, Steps 0–6; the per-story task breakdown has no draft). Drafts are keyed on the spec folder's slug, so picking a spec with a draft resumes it. Per-item loops (domain-model Steps 1 and 8, eng-review Step 4, ui-design Step 3) save after each item as `in_progress`, so a crash loses only the item in progress. Expensive output (subagent findings) is saved, so a resume doesn't redo it. `eng-flow-draft` gains an `in_progress` status that doesn't count as finished, plus `inputs` / `check` subcommands that hash a stage's input files at Step 0 and report changes on resume. The shared Resume / Review / Discard rules moved from the spec skill's folder to `.claude/skills/lib/draft-resume.md`.
+
 ## [0.2.3] — 2026-08-31
 
 ### Fixed

@@ -1,6 +1,6 @@
 # Research — session persistence best practices (beyond eng-flow and ECC)
 
-**Status:** D4 (draft/resume) implemented for Stages 1–4 and live-tested (T6, R8); D1 (hooks: §1.1 `SessionStart`, §1.2 `PreCompact`) still open
+**Status:** D4 (draft/resume) implemented for Stages 1–4 and live-tested (T6, R8); D1 decided 2026-10-28 (one `SessionStart` hook, `compact|resume`; no `PreCompact`), spec and tasks in `session-start-hook.md`
 **Compiled:** 2026-10-26
 **Scope:** how to carry agent state across sessions and context compaction. ECC's `hooks/memory-persistence/` is the starting point; this looks at what else is known.
 
@@ -162,7 +162,7 @@ Full walkthrough of the scenarios (start, crash, resume, finish, abandon, same t
 
 | # | Decision | Reason | Notes |
 |---|---|---|---|
-| D1 | Should eng-flow ship hooks at all? | `risk` | Carried over from the ECC borrowing proposal (removed from the repo 2026-10-27). Gates 1.1 (`SessionStart` reader) and the rescoped 1.2 (`PreCompact` marker), both described in "What this means for eng-flow" above. |
+| D1 | Should eng-flow ship hooks at all? | `risk` | Carried over from the ECC borrowing proposal (removed from the repo 2026-10-27). Gates 1.1 (`SessionStart` reader) and the rescoped 1.2 (`PreCompact` marker), both described in "What this means for eng-flow" above. **Decided 2026-10-28 (user):** yes, one `SessionStart` hook on `compact\|resume` that only reads; 1.2 dropped. Spec and tasks: `docs/improvements/session-start-hook.md`. |
 | D4 | Design of the shared draft/resume mechanism — file location and format, what triggers a write, cleanup after the final save, whether drafts are committed or gitignored | `risk` | In progress, see the D4 section. Format, trigger, location and Step 0 flow decided. Cleanup agreed. Gitignored (T8, 2026-10-27). Rolled out to Stages 2–4 on 2026-10-27 (R1–R7). Shared design in `.claude/skills/lib/draft-resume.md`. |
 
 ---

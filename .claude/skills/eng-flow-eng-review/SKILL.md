@@ -29,13 +29,33 @@ At the start of every numbered step below (including Step 0), run `python3 "${CL
 
 Check `$ARGUMENTS` for a `--guide` token; if present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 6's report adds a "Decisions I made / decisions you made" summary. Log every decision point via `python3 "${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/eng-flow-decision-log" eng-flow-eng-review "<step>" <reason> <mode> <owner> "<description>" "<dated-slug>"`. See `eng-flow-spec`'s Decision Ledger section for the taxonomy and why. Rollup/analysis: `eng-flow-retro` Step 1 (Stage 9).
 
+## Drafts
+
+This stage saves as it goes to `eng-flow/.drafts/eng-review--<dated-slug>.json` (`<dated-slug>` is the spec folder's), so a crash loses at most the step in progress — in Step 4, only the issue in progress. The shared rules (Resume, Review, Discard, `in_progress` loops, input drift) are in `${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/draft-resume.md` — Read it before resuming, reviewing or discarding. Every save in this file is this call, with the step's JSON on stdin — short form, JSON-escaped:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/eng-flow-draft" save eng-flow-eng-review "<dated-slug>" <step> <<'EOF'
+{"status": "done", "name": "<step name>", "answers": {…}}
+EOF
+```
+
+Degrades silently like the analytics scripts — a failed save prints a warning and the run carries on.
+
 ## Step 0 — Find the inputs
 
-Look for `eng-flow/specs/*/architecture.md` and the `domain-model.md` / `spec.md` in the same folder. If `architecture.md` is missing, tell the user to run Stage 3 first — there's nothing to review yet. If more than one spec folder exists, ask which one this run is for.
+Look for `eng-flow/specs/*/architecture.md` and the `domain-model.md` / `spec.md` in the same folder. If `architecture.md` is missing, tell the user to run Stage 3 first — there's nothing to review yet. Check for drafts: `python3 "${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/eng-flow-draft" list eng-flow-eng-review` — one line per draft, starting with the spec folder's `<dated-slug>`. If more than one spec folder exists, ask which one this run is for; a folder with a draft gets "draft: stopped after Step n, age" in its option description. If the chosen folder (or the only one) has a draft → **Resume** (`draft-resume.md`) — no further Step 0 questions.
 
 Read all three: the spec's constraints and NFRs, the domain model's entities/relationships, and the architecture's tech stack, diagram, API contracts, NFR targets, and deployment topology.
 
 Also look for `eng-flow/security-policy.md` (project-level, optional — established at Stage 3 if the project has one). Read it if present; if absent, note it in the report and fall back to the generic security-architecture check below.
+
+As the last action of this step (new run only), save step 0 (`"name": "Find the inputs"`) with `topic` (the spec's title), `spec_folder` and `security_policy` (`present` or `absent`), then record the inputs — add `eng-flow/security-policy.md` to the list if present:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/eng-flow-draft" inputs eng-flow-eng-review "<dated-slug>" "eng-flow/specs/<dated-slug>/spec.md" "eng-flow/specs/<dated-slug>/domain-model.md" "eng-flow/specs/<dated-slug>/architecture.md"
+```
+
+**Resume notes:** if the input check reports `architecture.md` changed and the draft stopped before Step 5, someone edited it after the review started — the findings may be stale; if the user wants a fresh review, `truncate ... 0` and continue at Step 1. If the draft stopped *in* Step 5, the change is most likely this run's own partial edits — see Step 5.
 
 ---
 
@@ -48,6 +68,8 @@ Walk `architecture.md` against:
 - **Security architecture** — auth model, data-at-rest/in-transit handling, API boundary trust assumptions — actually specified, not just "secure" as an adjective. If `eng-flow/security-policy.md` exists, check `architecture.md` explicitly addresses each of its stated rules — a gap here is a finding like any other, not a pass by default.
 - **Failure scenario per integration point** — for each external dependency or service boundary in the diagram, is there a stated realistic failure mode and whether the design accounts for it?
 - **Distribution path** — if this introduces a new deployable artifact, is the build/publish/deploy path part of the doc (or explicitly deferred), not silently assumed?
+
+As the last action of this step, save step 1 (`"name": "Checklist"`) with `findings` — one entry per finding with `title`, `section`, `issue` and `fix` (an empty list if none).
 
 ---
 
@@ -63,6 +85,8 @@ Apply these where relevant — not every pattern applies to every architecture, 
 6. **Incremental over revolutionary** — does the deployment/rollout path allow incremental delivery (staged rollout, feature flags), or does it require a big-bang cutover?
 7. **Reversibility preference** — for the decisions marked expensive-to-reverse (the ones that got ADRs in Stage 3), is the cost of being wrong actually low, or does the doc lock in something hard to undo without saying so?
 
+As the last action of this step, save step 2 (`"name": "Cognitive lenses"`) with `findings` — same shape as Step 1, plus `lens`.
+
 ---
 
 ## Step 3 — Independent subagent review
@@ -77,6 +101,8 @@ Adapted from gstack's `autoplan` dual-voice eng review (attribution: `docs/DECIS
 
 Merge the subagent's findings with Steps 1-2's into one list for Step 4, tagging each by source (`checklist` / `cognitive lens` / `independent review`). Drop exact duplicates, but keep two findings that reach the same conclusion by different reasoning — that agreement is itself informative.
 
+As the last action of this step, save step 3 (`"name": "Independent review"`) with `issues` — the merged list in the order Step 4 will raise them, each with `title`, `source`, `section`, `issue`, `severity` and `fix` — so a resume doesn't spawn the reviewer again.
+
 ---
 
 ## Step 4 — Interactive review, one issue at a time
@@ -88,6 +114,8 @@ For each issue surfaced in Steps 1-3, call `AskUserQuestion` individually — on
 Log each: `risk open_question <user_confirmed|user_revised> "issue '<title>': accepted|changed|rejected"`.
 
 If Steps 1-3 turn up nothing worth raising, say so plainly — a clean pass is a valid outcome, don't manufacture issues to fill the step.
+
+After each issue, save step 4 as `{"status": "in_progress", "name": "Issues", "answers": {"resolved": [...]}}` — every issue answered so far, each with `title` and `resolution` (`accepted`, `changed` with what changed, or `rejected` with the reason). On resume, raise only the issues from step 3's list that aren't in `resolved`. After the last issue (or straight away if there were none), save it as `"done"` with the same field.
 
 ---
 
@@ -109,6 +137,10 @@ Write `eng-flow/specs/<dated-slug>/eng-review.md`:
 ```
 
 For any finding marked "Accepted" or "Changed," update `architecture.md` directly to reflect the resolution — the review doc is the log, `architecture.md` stays the current source of truth.
+
+Build both from step 3's `issues` and step 4's `resolved`. When resuming into this step, a crash may have left some `architecture.md` edits already applied — read it and skip any resolution it already reflects, so nothing is applied twice.
+
+As the last action of this step, once `eng-review.md` is written and `architecture.md` updated, delete the draft: `python3 "${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/eng-flow-draft" clear eng-flow-eng-review "<dated-slug>"`. If either write failed, skip this and keep the draft; tell the user.
 
 ---
 

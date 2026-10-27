@@ -40,9 +40,67 @@ At the start of every numbered step below (including Step 0), run `python3 "${CL
 
 Appends to `eng-flow/decisions.jsonl`, same degrade-silently discipline as analytics — never blocks real work. Every other eng-flow skill's Decision Ledger section points back here for the taxonomy and just logs calls at its own decision points. Consumed by `eng-flow-retro` (Stage 9) Step 1, which cross-references `ai_default`/`ai_inferred` entries against later friction to tell whether a routing default is actually working or needs promoting to `must_escalate`.
 
-## Step 0 — Topic and routing
+## Step 0 — Topic, resume, and routing
 
-`$ARGUMENTS` is the rough topic — strip a leading/trailing `--guide` token first (see Decision Ledger above) before treating the remainder as the topic. If empty, ask: "What are we speccing?"
+`$ARGUMENTS` is the rough topic — strip a leading/trailing `--guide` token first (see Decision Ledger above) before treating the remainder as the topic. It may be empty.
+
+### Check for unfinished drafts
+
+Before asking anything, list this skill's drafts (design: `${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/draft-resume.md`):
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/eng-flow-draft" list eng-flow-spec
+```
+
+One tab-separated line per unfinished draft, newest first: `<dated-slug>  <topic>  stopped after Step <n> (<name>)  <age>`. No output means no drafts.
+
+| Situation | What to do |
+|---|---|
+| No topic, no drafts | Ask "What are we speccing?", then **New run** below. |
+| No topic, one or more drafts | One `AskUserQuestion` listing each draft (label: its topic, or `<topic> (<dated-slug>)` when two drafts share a topic; description: "stopped after Step n (name), age") plus **Something new**. `AskUserQuestion` takes at most 4 options, so with more than 3 drafts show the 3 newest and name the rest in the question text — the user can pick one through "Other". A draft → **Resume** straight away — no second question. Something new → ask "What are we speccing?", then **New run**. |
+| Topic given, a draft has the same topic (compare trimmed, case-insensitive) | One `AskUserQuestion`: **Resume it** (stopped after Step n, age) / **Start a separate spec** / **Discard it**. Resume → **Resume**; separate → **New run**; discard → **Discard**. If more than one draft matches (an earlier "separate spec" gave it a `-2` slug), list the matching drafts instead, each labelled with its slug, plus **Start a separate spec**; a picked draft → **Resume**. |
+| Topic given, no draft matches | **New run**. |
+
+### Resume and discard
+
+Picking a draft means resume — don't ask again. Discard is reached from the topic-match question above, or when the user says "discard" at any point after a resume starts.
+
+**Discard** — confirm first: "Delete the draft for `<topic>`? Its saved answers can't be recovered." Only on yes:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/eng-flow-draft" clear eng-flow-spec "<dated-slug>"
+```
+
+Log it: `eng-flow-decision-log eng-flow-spec "Step 0" risk open_question user_confirmed "discarded draft <dated-slug>" "<dated-slug>"`. Then go back to the top of Step 0 — with a topic given, that's a **New run** on it; without one, the draft list again (or "What are we speccing?" if none are left). On no, carry on where the user was.
+
+**Resume** — Read `eng-flow/.drafts/spec--<dated-slug>.json`. Take `dated_slug`, `topic` and `path` from it; reuse `dated_slug` exactly as saved — it carries the original start date, and Step 7 names the spec folder with it.
+
+Don't ask whether the saved answers are still right — continue straight away. Run Step `<n+1>`'s analytics checkpoint first, then say in one line, directly above that step's content (so tool output doesn't separate them), where it's picking up and how to review, e.g.: "Resuming **json export as csv** at Step 6 (Draft). Steps 0–5 are saved; say *review* to go over or change them, or *discard* to drop this draft." Then run Step `last_completed_step + 1` as normal, including its skip rules and draft save. Resuming at Step 7 writes `spec.md` from Step 6's saved `spec_markdown`.
+
+**Review** — only when the user asks (they say "review", or want to change an earlier answer): play back a short summary of the saved answers — a line or two per `done` step, each `skipped` step named with its reason — and take any corrections:
+
+- **Corrected** — re-save each changed step with its corrected answers (the same `save` call, same step number), then continue at `last_completed_step + 1`. Two exceptions, where the correction makes later saved steps stale — drop those steps *first*, so a crash before they're redone can't leave them counted as finished:
+  - **Routing path changed** — the saved skips no longer fit. Run `truncate eng-flow-spec "<dated-slug>" 0`, re-save step 0 with the new path, and continue at Step 1.
+  - **Step 6 was saved and an earlier answer changed** — its spec text is out of date. Run `truncate eng-flow-spec "<dated-slug>" 5`, re-save the changed steps, and continue at Step 6.
+
+  ```bash
+  python3 "${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/eng-flow-draft" truncate eng-flow-spec "<dated-slug>" <keep-up-to-step>
+  ```
+
+Log it: `eng-flow-decision-log eng-flow-spec "Step 0" risk open_question user_confirmed "resumed draft at Step <n+1>" "<dated-slug>"`, and on a review with corrections, `... user_revised "resumed draft, corrected: <what changed>" ...`. A resume skips the routing question and the step-0 save below — the draft already has both.
+
+### New run
+
+Compute the slug from the topic now, not at Step 7 — the draft file (end of this step) and the spec folder (Step 7) both use it, so it carries the start date. Lowercase, spaces to dashes, strip to `[a-z0-9._-]`, prefix with today's date:
+
+```bash
+SLUG=$(printf '%s' "$TOPIC" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9._-')
+DATED_SLUG="$(date +%Y-%m-%d)-$SLUG"
+```
+
+If `eng-flow/.drafts/spec--$DATED_SLUG.json` already exists (the same topic started again on the same day, and the user chose a separate spec), append `-2`, `-3`, … until the name is free — a separate spec must never write into the other one's draft.
+
+Shell variables don't survive between Bash calls — carry the literal `<dated-slug>` value forward and reuse it in every later step instead of recomputing it.
 
 Then ask the routing question — this determines everything downstream, so don't skip or infer it silently:
 
@@ -55,7 +113,17 @@ Offer three paths via `AskUserQuestion`:
 
 The path chosen governs which steps below run. Do not let "this looks like a startup idea" or "this looks big" substitute for actually asking — greenlit enterprise work and solo weekend ideas can look identical from the topic string alone.
 
-Log it: `eng-flow-decision-log eng-flow-spec "Step 0" risk open_question user_confirmed "routing path: <path chosen>" "<dated-slug-if-known>"` — wrong routing here cascades into every downstream step, so this is always an explicit ask, guide mode or not.
+Log it: `eng-flow-decision-log eng-flow-spec "Step 0" risk open_question user_confirmed "routing path: <path chosen>" "<dated-slug>"` — wrong routing here cascades into every downstream step, so this is always an explicit ask, guide mode or not.
+
+As the last action of this step, save it to the draft — this creates `eng-flow/.drafts/spec--<dated-slug>.json`, so a crash from here on keeps the topic and path (design: `${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/draft-resume.md`). `<path>` is `idea`, `approved` or `feature`:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/eng-flow-draft" save eng-flow-spec "<dated-slug>" 0 <<'EOF'
+{"status": "done", "name": "Topic and routing", "answers": {"topic": "<topic>", "path": "<path>"}}
+EOF
+```
+
+Degrades silently like the analytics scripts — a failed save prints a warning and the interview carries on.
 
 ---
 
@@ -71,6 +139,16 @@ Trimmed forcing questions, asked until answered concretely — not restated requ
 If these can't be answered without hand-waving, say so plainly and stop — offer to keep refining the idea rather than proceeding to a spec that will just encode the vagueness. If they survive, continue to Step 2.
 
 Paths "already approved" and "feature/story" skip this step entirely — the demand question isn't the engineer's to re-litigate on those paths.
+
+As the last action of this step, save it to the draft. Steps 1–6 all save the same way — `save eng-flow-spec "<dated-slug>" <step>` with the step's JSON on stdin — as `"done"` with the agreed answers in short form (not the conversation), or as `"skipped"` with a reason so a resume doesn't ask it again. JSON-escape quotes and newlines inside answer strings:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/eng-flow-draft" save eng-flow-spec "<dated-slug>" 1 <<'EOF'
+{"status": "done", "name": "Idea validation", "answers": {"who": "<who>", "status_quo": "<status quo>", "why_now": "<why now>", "narrowest_version": "<narrowest version>"}}
+EOF
+```
+
+Off the idea path: `{"status": "skipped", "name": "Idea validation", "reason": "not the idea path"}`. If the idea doesn't survive and you stop here, don't save Step 1 — the draft stays at Step 0, so a later run can resume and retry validation.
 
 ---
 
@@ -89,6 +167,8 @@ Paths "already approved" and "feature/story" skip this step entirely — the dem
 
 Don't move on until answers are specific and non-circular.
 
+As the last action of this step, save it (step 2, `"name": "Why"`) with one short answer per question asked, keyed by what it answers — e.g. `approved`, `stakeholders`, `source`, `outcome`, `success_metric`, `constraints` on the approved path; `problem`, `if_not_built`, `success_signal` otherwise.
+
 ---
 
 ## Step 3 — Phase 2: Audience, scope, and domains
@@ -105,6 +185,8 @@ For the "already approved" or "not decided" paths (new product/feature, not a sm
 - Functional requirements — what the system must do, as a list
 - Non-functional requirements — performance, security, availability, compliance, scalability. Ask explicitly; these get skipped if not prompted for.
 
+As the last action of this step, save it (step 3, `"name": "Audience and scope"`) with `end_user`, `mvp_cut`, `out_of_scope` and `domains` (a list), plus `journeys`, `functional_requirements` and `non_functional_requirements` (lists) when they were captured.
+
 ---
 
 ## Step 4 (path: feature/story only) — Technical grounding
@@ -117,6 +199,8 @@ Ask targeted questions about whichever apply (skip what clearly doesn't):
 - Edge cases the existing code already handles that this must not break
 
 Other paths skip this entirely — there's no code yet, and asking technical questions this early re-mixes concerns that belong to the (separate, not-yet-built) domain-modeling and architecture stages.
+
+As the last action of this step, save it (step 4, `"name": "Technical grounding"`) with `files` (the real files/functions cited), `integration_points`, `data_api_changes` and `edge_cases`. Off the feature path: `{"status": "skipped", "name": "Technical grounding", "reason": "not the feature path"}`.
 
 ---
 
@@ -133,6 +217,8 @@ If yes:
 - End by proposing what could be dug into further; don't auto-continue.
 
 Save findings to `competitor-analysis.md` alongside the spec (Step 7) if this ran.
+
+As the last action of this step, save it (step 5, `"name": "Research"`). If research ran, `answers` holds `competitors` — one entry per competitor with `name`, `summary`, `level` (1 or 2) and `source` — because `competitor-analysis.md` isn't written until Step 7 and a crash before then would lose the fetches. If it didn't: `{"status": "skipped", "name": "Research", "reason": "user declined competitor research"}`.
 
 ---
 
@@ -189,21 +275,29 @@ Show the draft, ask: "Does this accurately capture it, or anything to change?"
 
 Log it: `eng-flow-decision-log eng-flow-spec "Step 6" risk open_question <user_confirmed|user_revised> "draft accepted as-is|draft revised: <what changed>" "<dated-slug>"`.
 
-Quick manual check before saving: skim for anything that looks like a secret, credential, internal URL, or PII. If something looks off, flag it and ask before continuing — don't save it silently.
+Quick manual check before saving: skim for anything that looks like a secret, credential, internal URL, or PII. If something looks off, flag it and ask before continuing — don't save it silently. This check runs before the draft save below too, so nothing flagged lands in `eng-flow/.drafts/` either.
+
+As the last action of this step, once the user has confirmed the draft, save it (step 6, `"name": "Draft"`) with `spec_markdown` — the full confirmed spec text, JSON-escaped — and `revisions`, a short note of what the user changed (empty if accepted as-is). Step 7 writes this text as `spec.md`.
 
 ---
 
 ## Step 7 — Save
 
-Compute the slug from the topic: lowercase, spaces to dashes, strip to `[a-z0-9._-]`. Prefix with today's date.
+Use the `<dated-slug>` from Step 0 — don't recompute it, or a run that crosses midnight gets a different date than its draft.
 
 ```bash
-SLUG=$(printf '%s' "$TOPIC" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9._-')
-DATED_SLUG="$(date +%Y-%m-%d)-$SLUG"
-mkdir -p "eng-flow/specs/$DATED_SLUG"
+mkdir -p "eng-flow/specs/<dated-slug>"
 ```
 
 Write the spec to `eng-flow/specs/<dated-slug>/spec.md`, and `competitor-analysis.md` alongside it if Step 5 ran.
+
+As the last action of this step, once every file above is written, delete the draft — the spec folder now holds everything it did:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/eng-flow-draft" clear eng-flow-spec "<dated-slug>"
+```
+
+If any write failed, skip this call and keep the draft, so a re-run can resume from Step 6 instead of re-interviewing. Tell the user which file didn't save.
 
 ---
 

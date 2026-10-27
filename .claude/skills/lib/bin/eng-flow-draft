@@ -1,0 +1,394 @@
+#!/usr/bin/env python3
+"""
+eng-flow drafts: save an interview stage's answers step by step.
+
+Called as the last action of every numbered step in an interview stage
+(spec, domain model, architecture, ...), so a killed terminal or restart
+loses at most the in-flight step, never the user's earlier answers. One
+draft file per run, not per session, at eng-flow/.drafts/<prefix>--<dated-slug>.json
+where <prefix> is the skill name without "eng-flow-" (e.g. spec--2026-10-26-csv-export.json).
+
+Usage:
+  eng-flow-draft save <skill> <dated-slug> <step>   < step.json
+  eng-flow-draft list <skill>
+  eng-flow-draft truncate <skill> <dated-slug> <step>
+  eng-flow-draft inputs <skill> <dated-slug> <file>...
+  eng-flow-draft check <skill> <dated-slug>
+  eng-flow-draft clear <skill> <dated-slug>
+
+  save   reads the step's JSON object from stdin (quoting JSON inside a
+         SKILL.md shell line is fragile), e.g.
+           {"status": "done", "name": "Why", "answers": {"problem": "..."}}
+           {"status": "skipped", "reason": "not the idea path"}
+           {"status": "in_progress", "name": "Issues", "answers": {"resolved": [...]}}
+         Creates the draft on the first call, sets steps[<step>], and moves
+         last_completed_step and updated forward. An "in_progress" step (a
+         per-item loop saved after each item) is kept but not counted in
+         last_completed_step, so a resume re-enters that step. If the step's
+         answers carry "topic" or "path", they're copied to the draft's top
+         level. Written to a temp file then renamed, so a crash can't leave
+         half a file.
+  list   prints one line per draft for <skill>, newest first:
+           <dated-slug>\t<topic>\tstopped after Step <n> (<name>)\t<age>
+         with ", Step <m> (<name>) in progress" appended to the third field
+         when a step is in progress. Prints nothing when there are no drafts.
+  truncate drops every step after <step>, so last_completed_step falls
+         back to <step>. Run it on resume *before* re-saving a corrected
+         answer that invalidates later steps (e.g. a changed routing path),
+         so a crash in between can't leave stale steps counted as finished.
+  inputs records a sha256 of each <file> (paths as given, relative to the
+         project root) under the draft's "inputs", creating the draft if
+         needed. Downstream stages run it at Step 0 on the files they read.
+  check  prints one line per recorded input that changed since `inputs`:
+           <file>\tchanged   or   <file>\tmissing
+         Prints nothing when every input matches or none were recorded.
+  clear  deletes the draft. Run only after the stage's final file is saved.
+
+Never blocks the calling skill: on any error it prints a warning to
+stderr and exits 0.
+"""
+import calendar
+import hashlib
+import json
+import os
+import sys
+import tempfile
+import time
+
+USAGE = (
+    "usage: eng-flow-draft save <skill> <dated-slug> <step> < step.json\n"
+    "       eng-flow-draft list <skill>\n"
+    "       eng-flow-draft truncate <skill> <dated-slug> <step>\n"
+    "       eng-flow-draft inputs <skill> <dated-slug> <file>...\n"
+    "       eng-flow-draft check <skill> <dated-slug>\n"
+    "       eng-flow-draft clear <skill> <dated-slug>"
+)
+
+
+def iso(ts):
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(ts))
+
+
+def warn(msg):
+    print(f"eng-flow-draft: warning: {msg}", file=sys.stderr)
+
+
+def drafts_dir():
+    return os.path.join(os.getcwd(), "eng-flow", ".drafts")
+
+
+def prefix(skill):
+    return skill[len("eng-flow-"):] if skill.startswith("eng-flow-") else skill
+
+
+def safe(name):
+    # Skill and slug become part of a file name -- refuse anything that
+    # could escape eng-flow/.drafts/.
+    return bool(name) and "/" not in name and "\\" not in name and name not in (".", "..")
+
+
+def draft_path(skill, slug):
+    return os.path.join(drafts_dir(), f"{prefix(skill)}--{slug}.json")
+
+
+def step_key(step):
+    try:
+        return int(step)
+    except (TypeError, ValueError):
+        return -1
+
+
+def completed(steps):
+    # An in_progress step is a per-item loop partway through -- not finished.
+    done = [step_key(k) for k, v in steps.items()
+            if not (isinstance(v, dict) and v.get("status") == "in_progress")]
+    return max(done, default=None)
+
+
+def new_draft(skill, slug, now):
+    return {
+        "skill": skill,
+        "topic": None,
+        "dated_slug": slug,
+        "path": None,
+        "last_completed_step": None,
+        "created": now,
+        "updated": now,
+        "steps": {},
+    }
+
+
+def sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def write_atomic(path, data):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".tmp-", suffix=".json")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(data, f, indent=2)
+            f.write("\n")
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def cmd_save(args):
+    if len(args) != 3:
+        warn(USAGE)
+        return 0
+    skill, slug, step = args
+    if not (safe(skill) and safe(slug)):
+        warn(f"refusing unsafe skill/slug: {skill!r} {slug!r}")
+        return 0
+    if step_key(step) < 0:
+        warn(f"step must be a non-negative integer, got {step!r}")
+        return 0
+    try:
+        entry = json.loads(sys.stdin.read())
+    except (json.JSONDecodeError, ValueError) as e:
+        warn(f"stdin is not valid JSON, step {step} not saved: {e}")
+        return 0
+    if not isinstance(entry, dict):
+        warn(f"stdin must be a JSON object, step {step} not saved")
+        return 0
+
+    path = draft_path(skill, slug)
+    now = iso(time.time())
+    draft = None
+    if os.path.isfile(path):
+        try:
+            with open(path) as f:
+                draft = json.load(f)
+        except (OSError, json.JSONDecodeError, ValueError) as e:
+            warn(f"existing draft unreadable, not overwriting it: {e}")
+            return 0
+    if not isinstance(draft, dict):
+        draft = new_draft(skill, slug, now)
+
+    key = str(step_key(step))
+    draft.setdefault("steps", {})[key] = entry
+    answers = entry.get("answers")
+    if isinstance(answers, dict):
+        for field in ("topic", "path"):
+            if answers.get(field):
+                draft[field] = answers[field]
+    draft["last_completed_step"] = completed(draft["steps"])
+    draft["updated"] = now
+
+    try:
+        write_atomic(path, draft)
+    except OSError as e:
+        warn(f"could not write {path}: {e}")
+    return 0
+
+
+def cmd_truncate(args):
+    if len(args) != 3:
+        warn(USAGE)
+        return 0
+    skill, slug, step = args
+    if not (safe(skill) and safe(slug)):
+        warn(f"refusing unsafe skill/slug: {skill!r} {slug!r}")
+        return 0
+    keep = step_key(step)
+    if keep < 0:
+        warn(f"step must be a non-negative integer, got {step!r}")
+        return 0
+    path = draft_path(skill, slug)
+    try:
+        with open(path) as f:
+            draft = json.load(f)
+    except FileNotFoundError:
+        warn(f"no draft at {path}")
+        return 0
+    except (OSError, json.JSONDecodeError, ValueError) as e:
+        warn(f"existing draft unreadable, not changing it: {e}")
+        return 0
+    if not isinstance(draft, dict):
+        warn("existing draft is not a JSON object, not changing it")
+        return 0
+    steps = {k: v for k, v in (draft.get("steps") or {}).items() if 0 <= step_key(k) <= keep}
+    draft["steps"] = steps
+    draft["last_completed_step"] = completed(steps)
+    draft["updated"] = iso(time.time())
+    try:
+        write_atomic(path, draft)
+    except OSError as e:
+        warn(f"could not write {path}: {e}")
+    return 0
+
+
+def cmd_inputs(args):
+    if len(args) < 3:
+        warn(USAGE)
+        return 0
+    skill, slug, files = args[0], args[1], args[2:]
+    if not (safe(skill) and safe(slug)):
+        warn(f"refusing unsafe skill/slug: {skill!r} {slug!r}")
+        return 0
+    path = draft_path(skill, slug)
+    now = iso(time.time())
+    draft = None
+    if os.path.isfile(path):
+        try:
+            with open(path) as f:
+                draft = json.load(f)
+        except (OSError, json.JSONDecodeError, ValueError) as e:
+            warn(f"existing draft unreadable, not overwriting it: {e}")
+            return 0
+    if not isinstance(draft, dict):
+        draft = new_draft(skill, slug, now)
+    inputs = draft.get("inputs") if isinstance(draft.get("inputs"), dict) else {}
+    for name in files:
+        try:
+            inputs[name] = sha256(name)
+        except OSError as e:
+            warn(f"could not hash {name}, not recorded: {e}")
+    draft["inputs"] = inputs
+    draft["updated"] = now
+    try:
+        write_atomic(path, draft)
+    except OSError as e:
+        warn(f"could not write {path}: {e}")
+    return 0
+
+
+def cmd_check(args):
+    if len(args) != 2:
+        warn(USAGE)
+        return 0
+    skill, slug = args
+    if not (safe(skill) and safe(slug)):
+        warn(f"refusing unsafe skill/slug: {skill!r} {slug!r}")
+        return 0
+    path = draft_path(skill, slug)
+    try:
+        with open(path) as f:
+            draft = json.load(f)
+    except FileNotFoundError:
+        warn(f"no draft at {path}")
+        return 0
+    except (OSError, json.JSONDecodeError, ValueError) as e:
+        warn(f"existing draft unreadable: {e}")
+        return 0
+    inputs = draft.get("inputs") if isinstance(draft, dict) else None
+    for name, digest in sorted((inputs or {}).items()):
+        try:
+            if sha256(name) != digest:
+                print(f"{oneline(name)}\tchanged")
+        except FileNotFoundError:
+            print(f"{oneline(name)}\tmissing")
+        except OSError as e:
+            warn(f"could not hash {name}: {e}")
+    return 0
+
+
+def oneline(value):
+    # list's output is tab-separated, one draft per line.
+    return " ".join(str(value).split())
+
+
+def age(updated):
+    try:
+        then = calendar.timegm(time.strptime(updated, "%Y-%m-%dT%H:%M:%SZ"))
+    except (TypeError, ValueError):
+        return "unknown age"
+    secs = max(0, time.time() - then)
+    for unit, size in (("day", 86400), ("hour", 3600), ("minute", 60)):
+        n = int(secs // size)
+        if n:
+            return f"{n} {unit}{'s' if n != 1 else ''} ago"
+    return "just now"
+
+
+def cmd_list(args):
+    if len(args) != 1:
+        warn(USAGE)
+        return 0
+    skill = args[0]
+    if not safe(skill):
+        warn(f"refusing unsafe skill: {skill!r}")
+        return 0
+    d = drafts_dir()
+    if not os.path.isdir(d):
+        return 0
+    rows = []
+    want = f"{prefix(skill)}--"
+    for name in os.listdir(d):
+        if not (name.startswith(want) and name.endswith(".json")):
+            continue
+        try:
+            with open(os.path.join(d, name)) as f:
+                draft = json.load(f)
+        except (OSError, json.JSONDecodeError, ValueError):
+            warn(f"skipping unreadable draft {name}")
+            continue
+        if not isinstance(draft, dict):
+            continue
+        slug = draft.get("dated_slug") or name[len(want):-len(".json")]
+        last = draft.get("last_completed_step")
+        stopped = "not started"
+        if last is not None:
+            step_name = (draft.get("steps", {}).get(str(last)) or {}).get("name")
+            stopped = f"stopped after Step {last}" + (f" ({step_name})" if step_name else "")
+        for k, v in sorted((draft.get("steps") or {}).items(), key=lambda kv: step_key(kv[0])):
+            if isinstance(v, dict) and v.get("status") == "in_progress":
+                name_part = f" ({v['name']})" if v.get("name") else ""
+                stopped += f", Step {step_key(k)}{name_part} in progress"
+        updated = draft.get("updated") or ""
+        fields = (slug, draft.get("topic") or "(no topic)", stopped, age(updated))
+        rows.append((updated, "\t".join(oneline(f) for f in fields)))
+    for _, line in sorted(rows, reverse=True):
+        print(line)
+    return 0
+
+
+def cmd_clear(args):
+    if len(args) != 2:
+        warn(USAGE)
+        return 0
+    skill, slug = args
+    if not (safe(skill) and safe(slug)):
+        warn(f"refusing unsafe skill/slug: {skill!r} {slug!r}")
+        return 0
+    path = draft_path(skill, slug)
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass
+    except OSError as e:
+        warn(f"could not remove {path}: {e}")
+    return 0
+
+
+def main():
+    commands = {
+        "save": cmd_save,
+        "list": cmd_list,
+        "truncate": cmd_truncate,
+        "inputs": cmd_inputs,
+        "check": cmd_check,
+        "clear": cmd_clear,
+    }
+    if len(sys.argv) < 2 or sys.argv[1] not in commands:
+        warn(USAGE)
+        return 0  # never block the calling skill over a usage error
+    try:
+        return commands[sys.argv[1]](sys.argv[2:])
+    except Exception as e:  # last-resort guard -- drafts must never block real work
+        warn(f"unexpected error: {e}")
+        return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

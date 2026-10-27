@@ -133,6 +133,8 @@ Also captured: user journeys/stories (narrative scenarios), functional requireme
 
 Exception: if this is a feature/story in an *existing* product (routing path 3), a technical-grounding pass is appropriate here, because real code already embodies real constraints worth reading before asking. That pass reads the relevant code first, then asks about data model, API, and integration points — the same idea applies at MVP scale, just lighter.
 
+**Draft and resume.** The interview saves as it goes: each numbered step ends by writing its agreed answers to a draft in `eng-flow/.drafts/` (see "Save conventions"), so a crash or closed terminal loses at most the step in progress. Step 0 lists unfinished drafts and offers to resume one at the next step; the draft is deleted once `spec.md` is saved. Stages 2, 3, 3.5, 3.6 and 4 (Steps 0–6) use the same mechanism, keyed on the spec folder's slug: picking a spec that has a draft resumes it, per-item loops (domain-model findings, eng-review issues, ui-design gate dimensions) save after each item, and a resume flags input files that changed since the draft started.
+
 ### Stage 2 — Domain Model
 
 Owned by an "architect" role. Takes Stage 1 as input, translates it into structure — still conceptual, no tech stack yet. Skill: `.claude/skills/eng-flow-domain-model/SKILL.md`.
@@ -281,6 +283,9 @@ Everything lives inside the project's own repo — no global/external store.
 <project-root>/eng-flow/
   design-system.md               # project-level, reused across specs (Stage 3.6)
   security-policy.md             # project-level, optional, reused across specs (Stage 3; checked by 3.5 and 6)
+  .drafts/                       # in-progress interview stages, one JSON file per run
+    spec--2026-08-06-csv-export.json
+    architecture--2026-08-06-csv-export.json
   specs/
     2026-08-06-csv-export/
       spec.md
@@ -292,3 +297,5 @@ Everything lives inside the project's own repo — no global/external store.
 ```
 
 The directory name is `{date}-{slug}`, where `slug` is the spec's topic, lowercased, spaces to dashes, stripped to `[a-z0-9._-]` — the date prefix avoids collisions between specs on the same topic over time.
+
+`.drafts/` holds one file per unfinished stage run, named `<stage>--<dated-slug>.json`, where `<dated-slug>` is the same `{date}-{slug}` as the spec folder (Stage 1 computes it at Step 0, not at save time; later stages reuse the folder's). It's written by the shared `eng-flow-draft` helper under `${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/` at the end of every numbered step (and after each item of a per-item loop), and deleted only after the stage's final file is saved. An abandoned draft is never deleted automatically; Step 0 offers to resume or discard it. Whether drafts are committed or gitignored is not decided yet. Design and shared resume rules: `.claude/skills/lib/draft-resume.md`.

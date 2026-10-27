@@ -30,11 +30,31 @@ At the start of every numbered step in Steps 0-6 (including Step 0), run `python
 
 Check `$ARGUMENTS` for a `--guide` token; if present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 6's report (Step 7's own report for the breakdown run) adds a "Decisions I made / decisions you made" summary. Log every decision point via `python3 "${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/eng-flow-decision-log" eng-flow-epics-stories-tasks "<step>" <reason> <mode> <owner> "<description>" "<dated-slug>"` (use `eng-flow-epics-stories-tasks-breakdown` as the skill name for Step 7's own calls, matching its separate analytics tag). See `eng-flow-spec`'s Decision Ledger section for the taxonomy and why. Rollup/analysis: `eng-flow-retro` Step 1 (Stage 9).
 
+## Drafts
+
+Steps 0–6 save as they go to `eng-flow/.drafts/epics-stories-tasks--<dated-slug>.json` (`<dated-slug>` is the spec folder's), so a crash loses at most the step in progress. Step 7 (task breakdown) has no draft — it's short and cheap to re-run. The shared rules (Resume, Review, Discard, input drift) are in `${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/draft-resume.md` — Read it before resuming, reviewing or discarding. Every save in this file is this call, with the step's JSON on stdin — short form, JSON-escaped:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/eng-flow-draft" save eng-flow-epics-stories-tasks "<dated-slug>" <step> <<'EOF'
+{"status": "done", "name": "<step name>", "answers": {…}}
+EOF
+```
+
+Degrades silently like the analytics scripts — a failed save prints a warning and the run carries on.
+
 ## Step 0 — Find the inputs
 
-Locate the spec folder this run is for (`eng-flow/specs/<dated-slug>/`, containing `spec.md`, `domain-model.md`, `architecture.md`). If any are missing, tell the user which stage to run first.
+Locate the spec folder this run is for (`eng-flow/specs/<dated-slug>/`, containing `spec.md`, `domain-model.md`, `architecture.md`). If any are missing, tell the user which stage to run first. Check for drafts: `python3 "${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/eng-flow-draft" list eng-flow-epics-stories-tasks` — one line per draft, starting with the spec folder's `<dated-slug>`. If you ask which spec folder this run is for, a folder with a draft gets "draft: stopped after Step n, age" in its option description. If the chosen folder has a draft → **Resume** (`draft-resume.md`) — no further Step 0 questions.
 
 Check whether `eng-flow/backlog/` already exists. If it does, this may be an update pass (new spec, existing backlog) rather than a first run — don't recreate or duplicate epics that already reference this project; just add what's new.
+
+As the last action of this step (new run only), save step 0 (`"name": "Find the inputs"`) with `topic` (the spec's title), `spec_folder` and `update_pass` (true if `eng-flow/backlog/` existed), then record the inputs:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/eng-flow-draft" inputs eng-flow-epics-stories-tasks "<dated-slug>" "eng-flow/specs/<dated-slug>/spec.md" "eng-flow/specs/<dated-slug>/domain-model.md" "eng-flow/specs/<dated-slug>/architecture.md"
+```
+
+**Stale on review:** the epics (Step 1) changed after Step 2 was saved → `truncate ... 1`, re-save step 1, continue at Step 2. A story (Step 2) changed after Step 3 was saved → `truncate ... 2`, re-save step 2, continue at Step 3.
 
 ---
 
@@ -50,6 +70,8 @@ Log it: `risk open_question <user_confirmed|user_revised> "epics: <confirmed as-
 
 For each confirmed epic, capture: name, outcome/goal (what value this delivers, not what gets built), source spec reference, linked domains.
 
+As the last action of this step, save step 1 (`"name": "Epics"`) with `epics` — one entry per confirmed epic with `name`, `outcome` and `domains`.
+
 ---
 
 ## Step 2 — Derive stories per epic
@@ -62,6 +84,8 @@ Log it: `risk open_question <user_confirmed|user_revised> "story '<name>' sizing
 
 For each story, write acceptance criteria — specific, testable conditions, not "works correctly."
 
+As the last action of this step, save step 2 (`"name": "Stories"`) with `stories` — one entry per story with `name`, `epic`, `as_a`, `i_want`, `so_that` and `acceptance_criteria` (list).
+
 ---
 
 ## Step 3 — Cross-check against architecture
@@ -70,11 +94,15 @@ For each story, check the architecture's system diagram and API contracts: does 
 
 Log flagged stories: `risk silent_decide ai_inferred "story '<name>' spans 2+ subsystems: <split candidate | coordination note>"`.
 
+As the last action of this step, save step 3 (`"name": "Architecture cross-check"`) with `architecture_notes` — one entry per story with `story`, `subsystems` and `note` (the coordination note, or `single subsystem`). If a story was split here, re-save step 2 with the split stories first.
+
 ---
 
 ## Step 4 — Traceability
 
 Every story references its parent epic and the source spec path. Every epic references its source spec path and linked domains. This is what makes the backlog navigable later — don't skip it even for a small backlog; it's cheap now and expensive to reconstruct later.
+
+As the last action of this step, save step 4 (`"name": "Traceability"`) with `files` — every epic and story file Step 5 will write, each with `path` and `markdown` (the full file text per the templates below, JSON-escaped).
 
 ---
 
@@ -124,6 +152,10 @@ Spec: eng-flow/specs/<dated-slug>/spec.md
 ```
 
 Write files, don't overwrite existing epics/stories from prior runs — if this run's proposals overlap an existing epic/story, ask the user whether to update it or add a new one. Log overlaps: `risk open_question user_confirmed "'<slug>' overlaps existing: <updated|added new>"`.
+
+Write from step 4's saved `files`. When resuming into this step, a crash may have left some of them written already: a file whose content matches the draft's `markdown` exactly was written by this run — skip it, it isn't an overlap.
+
+As the last action of this step, once every file is written, delete the draft: `python3 "${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/eng-flow-draft" clear eng-flow-epics-stories-tasks "<dated-slug>"`. If any write failed, skip this and keep the draft; tell the user which file didn't save.
 
 ---
 

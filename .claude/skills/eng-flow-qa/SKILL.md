@@ -1,6 +1,6 @@
 ---
 name: eng-flow-qa
-description: Production Stage 7 — browser-based, front-end-only behavioral QA. Exercises the running app (not the diff) to find bugs a code review can't catch. Browser-agnostic on Playwright specifically (gstack's own browser daemon is a wrapper around it) — falls back to a guided manual checklist if no browser automation is available. Documents bugs; does not fix them — fixes route through eng-flow-implement.
+description: Production Stage 7 — browser-based, front-end-only behavioral QA. Exercises the running app (not the diff) to find bugs a code review can't catch. Drives the browser via the plugin-bundled eng-flow-browse skill — falls back to a guided manual checklist if browser automation is unavailable in a given session. Documents bugs; does not fix them — fixes route through eng-flow-implement.
 allowed-tools:
   - Read
   - Grep
@@ -29,16 +29,17 @@ At the start of every step below (including Step 0), run `python3 .claude/skills
 
 Check `$ARGUMENTS` for a `--guide` token; if present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 5's report adds a "Decisions I made / decisions you made" summary. Log every decision point via `python3 .claude/skills/lib/bin/eng-flow-decision-log eng-flow-qa "<step>" <reason> <mode> <owner> "<description>" "<story-slug>"`. See `eng-flow-spec`'s Decision Ledger section for the taxonomy and why. Rollup/analysis: `eng-flow-retro` Step 1 (Stage 9).
 
+## Findings Ledger
+
+Step 5 logs the severity-tagged issue counts it already computed for `qa-report.md` to project-level `eng-flow/findings.jsonl`, via `eng-flow-findings-log` — see Step 5 for the exact call. Feeds `eng-flow-analytics`' (Stage 10) bug-rate rollup; not something this skill reads back itself.
+
 ## Step 0 — Detect browser automation
 
-Check, in order:
-1. An MCP-provided Playwright (or equivalent browser-automation) tool registered in this environment.
-2. Playwright installed in the target project itself (`@playwright/test` or `playwright` in `package.json`, or `node_modules/playwright`) — drive it directly via a small script run through Bash.
-3. Neither present.
+Prefer `eng-flow-browse` (bundled with this plugin — its `mcpServers.playwright` entry auto-starts, so it's present for every installer with no manual setup). Invoke it directly for navigation, screenshots, and console-error checks in Step 3, rather than driving Playwright by hand here.
 
-If (1) or (2), use it for navigation, screenshots, and console-error checks. If neither, fall back to **guided-manual mode**: present the per-page checklist (Step 3) to the user, ask them to walk through it in their own browser and report back what they see (descriptions or pasted screenshots) — don't skip QA just because there's no automation, degrade the mechanism, not the coverage.
+If `eng-flow-browse` can't reach a working browser in this session (MCP failed to start, sandboxed environment, etc.), fall back to **guided-manual mode**: present the per-page checklist (Step 3) to the user, ask them to walk through it in their own browser and report back what they see (descriptions or pasted screenshots) — don't skip QA just because automation is unavailable this run, degrade the mechanism, not the coverage.
 
-Log it: `risk silent_decide ai_default "browser automation: <mcp playwright | project playwright | guided-manual fallback>"`.
+Log it: `risk silent_decide ai_default "browser automation: <eng-flow-browse | guided-manual fallback>"`.
 
 ---
 
@@ -110,5 +111,7 @@ Mode: [diff-aware | full | quick]
 **Do not fix issues in this skill.** Report the list, then tell the user: "Route these through `eng-flow-implement` as tasks against the story" (or, if a Critical issue is a straightforward code-review-catchable regression, note that too) — QA's job ends at documentation, same separation as every other stage in this track.
 
 If this run was in guide mode, add a "Decisions I made / decisions you made" summary here, drawn from this run's `eng-flow-decision-log` calls.
+
+Log the bug-rate rollup: `python3 .claude/skills/lib/bin/eng-flow-findings-log eng-flow-qa "<summary verdict>" <critical-count> <required-count> <nit-count> "<story-slug>"` — this feeds `eng-flow-analytics`' (Stage 10) bug-rate rollup, not a QA score.
 
 Run the Step 5 analytics-finish call (see Analytics section above) before ending.

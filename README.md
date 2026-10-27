@@ -1,5 +1,7 @@
 # eng-flow
 
+**Version:** 0.1.0 — see [CHANGELOG.md](CHANGELOG.md) for release history.
+
 A lightweight, tool-agnostic engineering process — from rapid MVP to production-grade — for one engineer or a shared team.
 
 It's a playbook (`PROCESS.md`) plus a set of live Claude Code skills that implement it, distributed as a Claude Code plugin — install once, use in any project.
@@ -22,6 +24,11 @@ See `PROCESS.md` for the full routing logic and what each stage does.
 
 > **SSH errors?** The marketplace clones over SSH by default. If you don't have SSH keys set up
 > on GitHub, use the full HTTPS URL instead: `/plugin marketplace add https://github.com/m3dcodie/eng-flow.git`.
+
+The plugin bundles its own Playwright MCP server (`@playwright/mcp`, pinned version) via
+`plugin.json`'s `mcpServers` field — it auto-starts when the plugin is enabled, so
+browser-based skills (`eng-flow-browse`, `eng-flow-qa`) work out of the box with no separate
+`claude mcp add` step.
 
 **Local / development** (no push required, edits take effect immediately):
 
@@ -46,6 +53,7 @@ PROCESS.md                       # the playbook: routing + phase gate
   marketplace.json               # marketplace listing, installed via /plugin marketplace add
 .claude/skills/
   eng-flow-mvp/                  # MVP mode — one-pager, checklist, auto-implement loop, ship
+  eng-flow-browse/               # utility — general-purpose visual verification (Playwright MCP)
   eng-flow-spec/                 # Stage 1 — requirements
   eng-flow-domain-model/         # Stage 2 — domain model
   eng-flow-architecture/         # Stage 3 — technical design
@@ -60,4 +68,5 @@ PROCESS.md                       # the playbook: routing + phase gate
   eng-flow-analytics/            # Stage 10 — analytics rollup
 docs/
   DECISIONS.md                   # design rationale, comparisons, external validation
+CHANGELOG.md                     # release history
 ```

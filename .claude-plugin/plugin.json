@@ -1,10 +1,17 @@
 {
   "name": "eng-flow",
+  "version": "0.2.0",
   "description": "A tool-agnostic engineering process implemented as Claude Code skills: a lightweight MVP mode for fast, low-ceremony builds, and a staged production-grade track (spec through ship) for work that needs formal requirements, architecture, review, and QA. PROCESS.md defines the routing between the two.",
   "author": {
     "name": "Suhail Tahir"
   },
   "homepage": "https://github.com/m3dcodie/eng-flow",
   "repository": "https://github.com/m3dcodie/eng-flow",
-  "skills": "./.claude/skills"
+  "skills": "./.claude/skills",
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@0.0.79"]
+    }
+  }
 }

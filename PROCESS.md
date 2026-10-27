@@ -152,12 +152,13 @@ Only here do tech stack, deployment, and API/microservice shape get decided. Ski
 - API contracts
 - Deployment strategy — local/containers now, cloud-ready notes for later; match the user's actual current practice (local dev, containers, GitHub) rather than assuming cloud deploy is imminent
 - ADRs for significant decisions — one per decision, as they come up, not retrofitted
+- Project-level security policy (`eng-flow/security-policy.md`, optional) — standing rules (credential handling, least-privilege access, write confirmation, etc.), established here if the project doesn't already have one, reused across specs like `design-system.md`, checked by Stage 3.5 and Stage 6
 
 ### Stage 3.5 — Engineering Review
 
 Reviews `architecture.md` before any backlog work is built on top of it — catches design problems while they're still cheap to fix, not a code review (no code exists yet at this point). Skill: `.claude/skills/eng-flow-eng-review/SKILL.md`.
 
-- Architecture-review checklist: component boundaries/coupling, data flow bottlenecks, scaling/SPOF, security architecture, per-integration-point failure scenarios, distribution path
+- Architecture-review checklist: component boundaries/coupling, data flow bottlenecks, scaling/SPOF, security architecture (checked against `eng-flow/security-policy.md` when one exists, not just generically), per-integration-point failure scenarios, distribution path
 - Cognitive-pattern lenses (adapted from gstack's `plan-eng-review`, see `docs/DECISIONS.md`): boring by default, blast radius, Conway's Law, essential vs. accidental complexity, two-week smell test, incremental over revolutionary, reversibility preference
 - Interactive, one issue at a time — each finding grounded in the specific section of `architecture.md` it reacts to, explicit accept/change/reject from the user before moving on
 - Findings and resolutions logged to `eng-review.md` in the same spec folder; accepted/changed findings also update `architecture.md` directly
@@ -192,9 +193,10 @@ Any new feature/bug/task starts the same way: pull latest base, create a branch 
 
 Post-implementation counterpart to Stage 3.5 — reviews the actual diff Stage 5 produced, not a design doc. Skill: `.claude/skills/eng-flow-code-review/SKILL.md`.
 
-- Five-axis review: correctness, readability, architecture, security, performance
+- Five-axis review: correctness, readability, architecture, security (checked against `eng-flow/security-policy.md` when one exists), performance
 - Severity-tagged findings — Critical/Required block merge and get an individual sign-off gate; Nit/Optional/FYI are listed, not gated
 - Tests reviewed first, dead code flagged before removal, verdict (Approve / Request changes) saved alongside the story
+- Finding counts logged to `eng-flow/findings.jsonl` (Stage 10's bug-rate rollup input) — see Analytics below
 
 ### Stage 7 — QA
 
@@ -204,6 +206,7 @@ Browser-based, front-end only — skip for backend/CLI/library work with no UI. 
 - Detects Playwright (MCP or project-local) if available; falls back to a guided manual checklist otherwise, never skips QA for lack of tooling
 - Modes: diff-aware (default, scoped to the current story), full, quick
 - Documents bugs with evidence and severity, does not fix them — fixes route through Stage 5 (`eng-flow-implement`)
+- Finding counts logged to `eng-flow/findings.jsonl` (Stage 10's bug-rate rollup input) — see Analytics below
 
 ### Stage 8 — Ship
 
@@ -230,6 +233,8 @@ Every stage above (1 through 9) logs its own time and token usage, incrementally
 
 Token counts come from Claude Code's own session transcript (`$CLAUDE_CODE_SESSION_ID`), which carries real per-turn usage data — not something gstack or agent-skills does. Degrades to time-only if unavailable; never blocks the actual work.
 
+Stages 6 and 7 additionally log severity-tagged finding counts to project-level `eng-flow/findings.jsonl`, via `eng-flow-findings-log` — a single point-in-time append at save time, not a checkpoint/marker pair like the time/token log above.
+
 ### Decision Ledger (cross-cutting, not a sequential stage)
 
 Every stage above logs each judgment call it makes — not just risky/irreversible ones (already gated elsewhere), but anywhere the AI decides something the user might reasonably have wanted a say in. Logged via `eng-flow-decision-log`, shared script under `.claude/skills/lib/bin/`, appending to project-level `eng-flow/decisions.jsonl`. Full taxonomy lives in `eng-flow-spec`'s Decision Ledger section (canonical copy); every other skill's own section is a short pointer back to it.
@@ -250,6 +255,9 @@ No dedicated rollup skill yet (unlike Analytics' Stage 10) — one can be added 
 Read-only, on-demand. Skill: `.claude/skills/eng-flow-analytics/SKILL.md`.
 
 - Rolls up `analytics.jsonl` by story and by stage — time and tokens, broken down by category (input/output/cache-write/cache-read), not flattened into one number
+- Cycle time per story — elapsed (calendar) vs. active (summed work) time, plus the idle gaps between stages, all derived from `analytics.jsonl`'s existing timestamps, no new instrumentation
+- Rework cycles — how many separate passes a story took through Stage 6 (`eng-flow-code-review`) or Stage 7 (`eng-flow-qa`), derived the same way
+- Bug rate — Critical/Required/Nit finding counts per story and project-wide, from `findings.jsonl` (written by Stage 6/7, see those stages above)
 - No dollar-cost estimate — check Anthropic's pricing page or Claude Code's `/cost` for that
 
 ---
@@ -272,6 +280,7 @@ Everything lives inside the project's own repo — no global/external store.
 ```
 <project-root>/eng-flow/
   design-system.md               # project-level, reused across specs (Stage 3.6)
+  security-policy.md             # project-level, optional, reused across specs (Stage 3; checked by 3.5 and 6)
   specs/
     2026-08-06-csv-export/
       spec.md

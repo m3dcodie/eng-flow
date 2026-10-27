@@ -10,11 +10,26 @@ cost very differently, so they're kept separate, not flattened into one
 number). No dollar estimate -- pricing changes and isn't this script's
 job to track; report raw tokens.
 
+Also reports, derived from the same rows without any new instrumentation:
+  - cycle time: elapsed (calendar, min ts_start to max ts_end) vs. active
+    (summed duration_s) time per story -- the gap between them is idle/
+    handoff time sitting between sessions or stages.
+  - stage-transition gaps: the idle time between one skill's last ts_end
+    and the next distinct skill's first ts_start, in story order.
+  - rework cycles: distinct run_ids per (story, skill) -- run_id resets
+    on each fresh invocation, so >1 for eng-flow-code-review/eng-flow-qa
+    means the story went through a re-review/re-QA loop.
+
+And, if eng-flow/findings.jsonl exists (written by eng-flow-findings-log
+at the end of eng-flow-code-review/eng-flow-qa): a bug-rate rollup --
+Critical/Required/Nit finding counts per story and project-wide.
+
 Usage: eng-flow-analytics-report [story-slug]
 """
 import json
 import os
 import sys
+from datetime import datetime
 
 
 def load_rows(path):
@@ -67,9 +82,41 @@ def fmt_tokens(n):
     return str(n)
 
 
+def parse_iso(s):
+    if not s:
+        return None
+    try:
+        return datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError:
+        return None
+
+
+def fmt_span(start, end):
+    if not start or not end:
+        return "?"
+    return fmt_duration((end - start).total_seconds())
+
+
+def load_findings(path):
+    rows = []
+    if not os.path.isfile(path):
+        return rows
+    with open(path, "r", errors="ignore") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    return rows
+
+
 def main():
     root = os.getcwd()
     log_path = os.path.join(root, "eng-flow", "analytics.jsonl")
+    findings_path = os.path.join(root, "eng-flow", "findings.jsonl")
     filter_story = sys.argv[1] if len(sys.argv) > 1 else None
 
     rows = load_rows(log_path)
@@ -86,6 +133,8 @@ def main():
     by_story = {}
     by_skill = {}
     recovered_count = 0
+    # story -> skill -> {"first_start": dt, "last_end": dt, "run_ids": set()}
+    story_skill_spans = {}
 
     for r in rows:
         story = r.get("story") or "(no story)"
@@ -104,6 +153,16 @@ def main():
         k["duration_s"] += dur
         k["steps"] += 1
         add_usage(k["usage"], usage)
+
+        start, end = parse_iso(r.get("ts_start")), parse_iso(r.get("ts_end"))
+        if start and end:
+            sk = story_skill_spans.setdefault(story, {}).setdefault(
+                skill, {"first_start": start, "last_end": end, "run_ids": set()}
+            )
+            sk["first_start"] = min(sk["first_start"], start)
+            sk["last_end"] = max(sk["last_end"], end)
+            if r.get("run_id"):
+                sk["run_ids"].add(r["run_id"])
 
     def print_usage_line(label, data):
         u = data["usage"]
@@ -125,6 +184,58 @@ def main():
     print("=== By skill/stage ===")
     for skill, data in sorted(by_skill.items(), key=lambda kv: -kv[1]["duration_s"]):
         print_usage_line(skill, data)
+
+    print()
+    print("=== Cycle time (elapsed vs. active) ===")
+    for story, skill_spans in story_skill_spans.items():
+        story_start = min(v["first_start"] for v in skill_spans.values())
+        story_end = max(v["last_end"] for v in skill_spans.values())
+        active = by_story[story]["duration_s"]
+        print(
+            f"  {story:<32} elapsed={fmt_span(story_start, story_end):>8}  "
+            f"active={fmt_duration(active):>8}"
+        )
+
+        ordered = sorted(skill_spans.items(), key=lambda kv: kv[1]["first_start"])
+        for i in range(1, len(ordered)):
+            prev_skill, prev = ordered[i - 1]
+            skill, cur = ordered[i]
+            gap = (cur["first_start"] - prev["last_end"]).total_seconds()
+            if gap > 0:
+                print(f"      gap {prev_skill} -> {skill}: {fmt_duration(gap)}")
+
+        for skill, v in ordered:
+            if skill in ("eng-flow-code-review", "eng-flow-qa") and len(v["run_ids"]) > 1:
+                print(f"      {skill}: {len(v['run_ids'])} passes (rework/re-review loop)")
+
+    findings_rows = load_findings(findings_path)
+    if filter_story:
+        findings_rows = [r for r in findings_rows if r.get("story") == filter_story]
+    if findings_rows:
+        print()
+        print("=== Bug rate (from findings.jsonl) ===")
+        by_story_findings = {}
+        totals = {"Critical": 0, "Required": 0, "Nit": 0}
+        for r in findings_rows:
+            story = r.get("story") or "(no story)"
+            counts = r.get("counts") or {}
+            entry = by_story_findings.setdefault(
+                story, {"Critical": 0, "Required": 0, "Nit": 0, "passes": 0}
+            )
+            entry["passes"] += 1
+            for sev in ("Critical", "Required", "Nit"):
+                n = counts.get(sev, 0) or 0
+                entry[sev] += n
+                totals[sev] += n
+        for story, c in by_story_findings.items():
+            print(
+                f"  {story:<32} critical={c['Critical']} required={c['Required']} "
+                f"nit={c['Nit']}  (across {c['passes']} review/QA pass(es))"
+            )
+        print(
+            f"  {'project total':<32} critical={totals['Critical']} "
+            f"required={totals['Required']} nit={totals['Nit']}"
+        )
 
     if recovered_count:
         print()

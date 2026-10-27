@@ -9,6 +9,7 @@ allowed-tools:
   - Bash
   - AskUserQuestion
   - Artifact
+  - Agent
 triggers:
   - domain model
   - model the domain
@@ -22,11 +23,13 @@ Stage 2 of the production track. Translates a spec's plain-language requirements
 
 ## Analytics
 
-At the start of every numbered step below (including Step 0), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-domain-model "<step name>" "<dated-slug>"`. As the last action of Step 8, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-domain-model "<dated-slug>"`. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
+At the start of every numbered step below (including Step 0), run `python3 .claude/skills/lib/bin/eng-flow-analytics-checkpoint eng-flow-domain-model "<step name>" "<dated-slug>"`. As the last action of Step 10, run `python3 .claude/skills/lib/bin/eng-flow-analytics-finish eng-flow-domain-model "<dated-slug>"`. See `eng-flow-spec`'s Analytics section for what this logs and why; rollup via `eng-flow-analytics` (Stage 10).
 
 ## Decision Ledger
 
-Check `$ARGUMENTS` for a `--guide` token; if present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 8's report adds a "Decisions I made / decisions you made" summary. Log every decision point via `python3 .claude/skills/lib/bin/eng-flow-decision-log eng-flow-domain-model "<step>" <reason> <mode> <owner> "<description>" "<dated-slug>"`. See `eng-flow-spec`'s Decision Ledger section for the taxonomy and why. Rollup/analysis: `eng-flow-retro` Step 1 (Stage 9).
+Check `$ARGUMENTS` for a `--guide` token; if present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 10's report adds a "Decisions I made / decisions you made" summary. Log every decision point via `python3 .claude/skills/lib/bin/eng-flow-decision-log eng-flow-domain-model "<step>" <reason> <mode> <owner> "<description>" "<dated-slug>"`. See `eng-flow-spec`'s Decision Ledger section for the taxonomy and why. Rollup/analysis: `eng-flow-retro` Step 1 (Stage 9).
+
+Also check `$ARGUMENTS` for `--review-model=<opus|sonnet|haiku|fable>` — see Step 7 for what it controls.
 
 ## Step 0 — Find the spec
 
@@ -127,16 +130,42 @@ Show the draft, ask: "Does this match how you think about the domains, or anythi
 
 ---
 
-## Step 7 — Save
+## Step 7 — Independent subagent review
+
+Steps 1-6 ran in this conversation, built up interactively, one domain/journey at a time — good for capturing the user's mental model, bad at catching things that only show up when you look at the whole doc at once: a domain named in the spec but dropped from the model, a relationship asserted from one side but not the other, a diagram box with no corresponding prose section. Counter it with one blind pass, same pattern Stage 3.5 (`eng-flow-eng-review`) uses on `architecture.md`.
+
+Spawn a single `Agent` call (foreground — its output feeds Step 8, so wait for it), general-purpose, with a prompt that gives it **only the file paths, not this conversation's context or Steps 1-6's findings**:
+
+> "Read `eng-flow/specs/<dated-slug>/spec.md` and the just-drafted `domain-model.md` (pass its content directly, or the path if saved). You are an independent reviewer checking the domain model for internal consistency — you have not seen how it was built and have no stake in the choices made. Check: (1) does every domain in the spec's 'Domains Touched' list appear in the model, and does every domain in the model trace back to the spec — no silent additions or drops; (2) is every cross-domain relationship reflected consistently on both sides, no dangling references or contradicting cardinality; (3) is the same entity/term used consistently across domain sections and the data flow section, or does the language drift; (4) does every user journey in the spec have a matching entry in the Data Flow section, and vice versa; (5) does the system diagram's boxes and arrows match the prose 1:1, and does it stay free of technology labels (this stage is conceptual-only — a 'Postgres' or 'Lambda' box is itself a finding); (6) is there an edge case a journey implies but the model never addresses. For each finding: what's wrong, the section of `domain-model.md` it's in, and a fix."
+
+**Reviewer model:** omit `model` on the `Agent` call by default — it inherits whichever model is running this conversation, the same convention `eng-flow-eng-review` and `eng-flow-code-review` use. If `$ARGUMENTS` carries `--review-model=<opus|sonnet|haiku|fable>`, pass that as the call's `model` instead — e.g. `--review-model=haiku` for a cheap pass on a small/low-risk domain model, `--review-model=opus` when the domain model is large or the spec flagged this as high-risk. Log the choice: `risk silent_decide ai_default "review model: inherited (no override)"` when no override was given, or `risk open_question user_confirmed "review model: <name> (--review-model override)"` when one was.
+
+Fold the subagent's findings into Step 8. If it turns up nothing, say so — a clean pass is a valid outcome, don't manufacture findings to fill the step.
+
+---
+
+## Step 8 — Issue resolution
+
+For each finding from Step 7, call `AskUserQuestion` individually — one finding per call, never batched. Name the issue, ground it in the specific `domain-model.md` section it reacts to (quote or point to the actual text — a finding that can't be tied to real doc content doesn't get raised), state options, give an opinionated recommendation, explain why.
+
+**Stop and wait for the user's answer before raising the next finding.** Every finding gets an explicit accept/change/reject, same discipline as every other stage in this track.
+
+Log each: `risk open_question <user_confirmed|user_revised> "finding '<title>': accepted|changed|rejected"`.
+
+For anything accepted or changed, update the draft directly before Step 9 — `domain-model.md` gets saved once, already reflecting the review, not saved-then-patched.
+
+---
+
+## Step 9 — Save
 
 Write to the same spec's folder: `eng-flow/specs/<dated-slug>/domain-model.md`.
 
 ---
 
-## Step 8 — Report back
+## Step 10 — Report back
 
 Confirm the saved path. Tell the user this feeds Stage 3 (architecture — tech stack, deployment, API shape), not yet run.
 
 If this run was in guide mode, add a "Decisions I made / decisions you made" summary here, drawn from this run's `eng-flow-decision-log` calls.
 
-Run the Step 8 analytics-finish call (see Analytics section above) before ending.
+Run the Step 10 analytics-finish call (see Analytics section above) before ending.

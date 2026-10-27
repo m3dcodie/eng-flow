@@ -1,0 +1,80 @@
+#!/usr/bin/env python3
+"""
+eng-flow findings ledger: log one review/QA outcome.
+
+Called once, as the last action of eng-flow-code-review's Step 7 and
+eng-flow-qa's Step 5, after the skill has already built its severity-
+tagged findings list for the human-readable report (code-review.md /
+qa-report.md). This just logs the counts it already computed -- a
+point-in-time event, not a duration, so (like eng-flow-decision-log) it's
+a single append, no marker or crash-recovery state needed.
+
+Ledger has three buckets: Critical | Required | Nit. eng-flow-qa's
+severity vocabulary maps directly (it only has these three). eng-flow-
+code-review has five (Critical/Required/Nit/Optional/FYI); its Step 7
+collapses Optional and FYI into the nit-count here -- all three are
+"no individual gate" severities in that skill's own Step 4 table.
+
+Usage: eng-flow-findings-log <skill> <verdict> <critical> <required> <nit> [story-slug]
+
+  skill       eng-flow-code-review | eng-flow-qa
+  verdict     free text -- e.g. "Approve", "Request changes" (code review),
+              or a one-line QA summary verdict
+  critical, required, nit
+              counts, as they'll appear in eng-flow-analytics' bug-rate
+              rollup -- pass 0, not blank, when a category has no findings
+"""
+import json
+import os
+import sys
+import time
+
+
+def iso(ts):
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(ts))
+
+
+def to_int(raw):
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return 0
+
+
+def main():
+    if len(sys.argv) < 6:
+        print(
+            "usage: eng-flow-findings-log <skill> <verdict> <critical> <required> <nit> [story-slug]",
+            file=sys.stderr,
+        )
+        return 0  # never block the calling skill over a usage error
+
+    skill, verdict = sys.argv[1], sys.argv[2]
+    counts = {
+        "Critical": to_int(sys.argv[3]),
+        "Required": to_int(sys.argv[4]),
+        "Nit": to_int(sys.argv[5]),
+    }
+    story = sys.argv[6] if len(sys.argv) > 6 else None
+
+    row = {
+        "ts": iso(time.time()),
+        "skill": skill,
+        "story": story,
+        "verdict": verdict,
+        "counts": counts,
+    }
+
+    root = os.getcwd()
+    log_path = os.path.join(root, "eng-flow", "findings.jsonl")
+    try:
+        os.makedirs(os.path.dirname(log_path), exist_ok=True)
+        with open(log_path, "a") as f:
+            f.write(json.dumps(row) + "\n")
+    except OSError:
+        pass  # degrade silently -- the ledger must never block real work
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

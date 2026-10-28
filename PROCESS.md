@@ -233,7 +233,9 @@ Skill: `.claude/skills/eng-flow-retro/SKILL.md`.
 
 Every stage above (1 through 9) logs its own time and token usage, incrementally, step by step, to project-level `eng-flow/analytics.jsonl` — via `eng-flow-analytics-checkpoint` at the start of each step and `eng-flow-analytics-finish` at the end, shared scripts under `${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/`. Logging incrementally (not just once at start/end of a whole skill run) means a killed terminal or system restart loses at most the current in-flight step, not the whole run — an orphaned marker from a crash gets recovered and flushed the next time that skill starts.
 
-Token counts come from Claude Code's own session transcript (`$CLAUDE_CODE_SESSION_ID`), which carries real per-turn usage data — not something gstack or agent-skills does. Degrades to time-only if unavailable; never blocks the actual work.
+Token counts come from Claude Code's own session transcript (`$CLAUDE_CODE_SESSION_ID`), which carries real per-turn usage data — not something gstack or agent-skills does. Degrades to time-only if unavailable; never blocks the actual work. The shared extraction lives in `eng-flow-usage`, loaded by both scripts.
+
+Subagent work is counted in the step that spawned it. Each `Agent` call in a segment is matched to its own transcript (`<session>/subagents/agent-<id>.jsonl`, via the `toolUseId` in its `.meta.json`) and its usage is added to the row, which also gets `subagent_calls` and `subagent_usage`. If any call's transcript can't be found, or a background subagent hasn't finished, the row says `subagent_tokens: "untracked"` with `subagent_untracked_calls`, and `eng-flow-analytics-report` flags the undercount next to the totals; otherwise `subagent_tokens: "included"`. Usage is taken once per assistant message (Claude Code writes one transcript line per content block, each repeating the same usage). Details: `docs/DECISIONS.md`, "Subagent context offload".
 
 Stages 6 and 7 additionally log severity-tagged finding counts to project-level `eng-flow/findings.jsonl`, via `eng-flow-findings-log` — a single point-in-time append at save time, not a checkpoint/marker pair like the time/token log above.
 
@@ -269,6 +271,26 @@ When a draft is listed, the block ends with an instruction to re-read it and `li
 - **No `PreCompact`, `Stop` or `SessionEnd` hooks.** They can't save what only exists in the model's context. Saving at the end of every step already does that job.
 
 Design and rationale: `docs/improvements/session-start-hook.md`.
+
+### Plugin agents (cross-cutting, not a sequential stage)
+
+Four stages hand an independent pass to a subagent, and two more move bulky work into one to keep the main context small. Each uses a plugin agent from `agents/`, called by `subagent_type` (`eng-flow:<name>`). The agent file holds the stable instructions and the tool list; the skill passes only the run-specific inputs (file paths, diff scope, security-policy path, page list, checklist item), so the agent never sees the conversation or earlier findings.
+
+| Agent | Used by | Tools |
+|---|---|---|
+| `eng-flow-adversarial-reviewer` | Stage 6, Step 3.5 | Read, Grep, Glob, Bash (read-only git) |
+| `eng-flow-security-reviewer` | Stage 6, Step 3.5 | Read, Grep, Glob, Bash (read-only git) |
+| `eng-flow-doc-reviewer` | Stage 3.5, Step 3; Stage 2, Step 7 | Read, Grep, Glob |
+| `eng-flow-repro-test-writer` | Stage 5, Step 2 (bug-fix tasks) | Read, Grep, Glob, Write, Bash |
+| `eng-flow-qa-explorer` | Stage 7, Step 3 | everything except Write, Edit, NotebookEdit, Bash, Agent (keeps the Playwright MCP tools) |
+| `eng-flow-mvp-item-builder` | MVP mode, Step 4 (one call per checklist item) | Read, Grep, Glob, Write, Edit, Bash |
+
+- **No reviewer can write.** None of the three reviewers has Write or Edit. The test writer can create a test file but has no Edit. Bash can't be narrowed to single commands in an agent's tool list, so the read-only-git limit on the two code reviewers is stated in their instructions, not enforced.
+- **Offload agents return decisions, they don't make them.** `eng-flow-qa-explorer` and `eng-flow-mvp-item-builder` exist to keep Playwright output and per-item implementation out of the main thread. Subagents can't use `AskUserQuestion`, and both agents are told to return anything the Decision Ledger would log as `open_question` / `must_escalate` (a login, mutating JS, a hard stop) to the calling skill, which asks the user and logs it. The QA explorer is limited with `disallowedTools` instead of a `tools` list, because the plugin's Playwright tools get a plugin-prefixed name that a fixed list would have to guess. The item builder never pushes or checks items off; the MVP loop does both after checking that exactly one commit landed. `--inline` on either skill runs that work in the main thread as before.
+- **Model.** Each file sets `model: inherit`, so an agent runs on the caller's model. Stage 2's `--review-model` is still passed on the call and still wins.
+- **Fallback.** If an agent isn't listed (the plugin agents didn't load, e.g. the skills are running from a checkout), the step sends the agent file's body plus the same inputs to `general-purpose`, logs `risk silent_decide ai_default "agent <name> unavailable: general-purpose fallback"`, and carries on. The review is never skipped. The fallback loses the tool restriction, so each agent's instructions also say not to modify files.
+
+Rationale and what wasn't adopted: `docs/DECISIONS.md`, "Plugin agents".
 
 ### Stage 10 — Analytics
 

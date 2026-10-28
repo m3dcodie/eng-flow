@@ -91,6 +91,17 @@ project, so a long interview stage isn't continued from a lossy summary. It prin
 in projects without an `eng-flow/` folder. Set `ENG_FLOW_NO_HOOKS=1` to turn it off. See
 `PROCESS.md`, "Session hook".
 
+It ships six subagents under `agents/`, which the skills call by name. Four do independent
+passes: `eng-flow-adversarial-reviewer` and `eng-flow-security-reviewer` (code review),
+`eng-flow-doc-reviewer` (architecture and domain-model review) and `eng-flow-repro-test-writer`
+(bug-fix tests in implement). The three reviewers have no Write or Edit tool; the test writer can
+write new files but not edit existing ones. Two keep bulky work out of the main context:
+`eng-flow-qa-explorer` (QA's browser exploration, no Write/Edit/Bash) and
+`eng-flow-mvp-item-builder` (one MVP checklist item per call). Pass `--inline` to `eng-flow-qa` or
+`eng-flow-mvp` to run that work in the main conversation instead. They show up in the Agent tool as
+`eng-flow:<name>`.
+See `PROCESS.md`, "Plugin agents".
+
 **Local / development** (no push required, edits take effect immediately):
 
 ```bash
@@ -114,6 +125,13 @@ PROCESS.md                       # the playbook: routing + phase gate
   marketplace.json               # marketplace listing, installed via /plugin marketplace add
 hooks/
   hooks.json                     # SessionStart (compact|resume) — in-progress work reminder
+agents/                          # tool-restricted subagents the skills call by name
+  eng-flow-adversarial-reviewer.md  # Stage 6 — blind diff review (read-only)
+  eng-flow-security-reviewer.md     # Stage 6 — security audit of the diff (read-only)
+  eng-flow-doc-reviewer.md          # Stages 2 and 3.5 — blind doc review (read-only)
+  eng-flow-repro-test-writer.md     # Stage 5 — bug reproduction test (Write, no Edit)
+  eng-flow-qa-explorer.md           # Stage 7 — browser exploration, returns findings only
+  eng-flow-mvp-item-builder.md      # MVP mode — one checklist item: implement, test, commit
 .claude/skills/
   eng-flow-mvp/                  # MVP mode — one-pager, checklist, auto-implement loop, ship
   eng-flow-browse/               # utility — general-purpose visual verification (Playwright MCP)

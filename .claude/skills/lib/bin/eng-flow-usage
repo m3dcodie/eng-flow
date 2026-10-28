@@ -1,0 +1,186 @@
+#!/usr/bin/env python3
+"""
+eng-flow analytics: shared token-usage extraction.
+
+Not run directly -- loaded by eng-flow-analytics-checkpoint and
+eng-flow-analytics-finish (same SourceFileLoader pattern
+eng-flow-session-context uses for eng-flow-draft).
+
+Two things the transcript layout forces (checked against real Claude
+Code transcripts; see docs/DECISIONS.md, "Subagent context offload"):
+
+  - One assistant turn is written as one line per content block, every
+    line repeating the same message.id and usage. Summing every line
+    overcounts, so usage is taken once per message.id (last line wins).
+  - Subagent turns are not in the session transcript. Each Agent call
+    gets <session>/subagents/agent-<id>.jsonl plus a .meta.json whose
+    toolUseId matches the Agent tool_use in the parent transcript. The
+    Agent tool result's own `usage` is only the subagent's final turn,
+    not its total, so it isn't used.
+
+A subagent whose transcript is missing, or a background one not yet
+finished, counts as untracked -- the row says so rather than silently
+undercounting.
+"""
+import glob
+import json
+import os
+
+USAGE_KEYS = (
+    "input_tokens",
+    "output_tokens",
+    "cache_creation_input_tokens",
+    "cache_read_input_tokens",
+)
+AGENT_TOOL_NAMES = ("Agent", "Task")
+MAX_DEPTH = 5
+
+
+def empty_usage():
+    return {k: 0 for k in USAGE_KEYS}
+
+
+def add_usage(totals, usage):
+    if not usage:
+        return
+    for k in USAGE_KEYS:
+        totals[k] += usage.get(k, 0) or 0
+
+
+def transcript_path(session_id):
+    if not session_id:
+        return None
+    sanitized = os.getcwd().replace("/", "-")
+    return os.path.join(
+        os.path.expanduser("~"), ".claude", "projects", sanitized, f"{session_id}.jsonl"
+    )
+
+
+def line_count(path):
+    if not path or not os.path.isfile(path):
+        return 0
+    try:
+        with open(path, "r", errors="ignore") as f:
+            return sum(1 for _ in f)
+    except OSError:
+        return 0
+
+
+def read_entries(path, start_line=0, end_line=None):
+    """Parsed entries in lines [start_line:end_line), or None if unreadable.
+    start_line/end_line are line COUNTS, as line_count() returns them."""
+    if not path or not os.path.isfile(path):
+        return None
+    try:
+        with open(path, "r", errors="ignore") as f:
+            lines = f.readlines()
+    except OSError:
+        return None
+    entries = []
+    for line in lines[start_line:end_line]:
+        try:
+            entries.append(json.loads(line))
+        except (json.JSONDecodeError, ValueError):
+            continue
+    return entries
+
+
+def sum_assistant_usage(entries):
+    per_message = {}
+    for i, entry in enumerate(entries):
+        if entry.get("type") != "assistant":
+            continue
+        message = entry.get("message") or {}
+        usage = message.get("usage")
+        if not usage:
+            continue
+        per_message[message.get("id") or f"line-{i}"] = usage
+    totals = empty_usage()
+    for usage in per_message.values():
+        add_usage(totals, usage)
+    return totals
+
+
+def agent_tool_use_ids(entries):
+    ids = []
+    for entry in entries:
+        if entry.get("type") != "assistant":
+            continue
+        for block in (entry.get("message") or {}).get("content") or []:
+            if (
+                isinstance(block, dict)
+                and block.get("type") == "tool_use"
+                and block.get("name") in AGENT_TOOL_NAMES
+                and block.get("id")
+                and block["id"] not in ids
+            ):
+                ids.append(block["id"])
+    return ids
+
+
+def subagent_index(session_transcript):
+    """toolUseId -> (subagent transcript path, meta) for one session."""
+    index = {}
+    subagents_dir = os.path.join(os.path.splitext(session_transcript)[0], "subagents")
+    for meta_path in glob.glob(os.path.join(subagents_dir, "*.meta.json")):
+        try:
+            with open(meta_path) as f:
+                meta = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            continue
+        if meta.get("toolUseId"):
+            index[meta["toolUseId"]] = (meta_path[: -len(".meta.json")] + ".jsonl", meta)
+    return index
+
+
+def _subagent_usage(tool_use_ids, index, totals, depth):
+    """Adds each subagent's usage (and its own nested subagents') to totals.
+    Returns (calls, untracked)."""
+    calls = untracked = 0
+    for tool_use_id in tool_use_ids:
+        calls += 1
+        path, meta = index.get(tool_use_id, (None, {}))
+        unfinished = meta.get("requestShape") == "background" and not meta.get("finished")
+        entries = None if unfinished else read_entries(path)
+        if entries is None:
+            untracked += 1
+            continue
+        add_usage(totals, sum_assistant_usage(entries))
+        if depth < MAX_DEPTH:
+            c, u = _subagent_usage(agent_tool_use_ids(entries), index, totals, depth + 1)
+            calls += c
+            untracked += u
+    return calls, untracked
+
+
+def segment_usage(path, start_line, end_line):
+    """(usage, subagents) for one segment of a session transcript.
+    usage is None when the transcript can't be read (time-only row).
+    subagents is None when the segment made no Agent calls, else
+    {"calls", "untracked", "usage"} -- usage covering tracked calls only."""
+    entries = read_entries(path, start_line, end_line)
+    if entries is None:
+        return None, None
+    usage = sum_assistant_usage(entries)
+    tool_use_ids = agent_tool_use_ids(entries)
+    if not tool_use_ids:
+        return usage, None
+    sub_totals = empty_usage()
+    calls, untracked = _subagent_usage(tool_use_ids, subagent_index(path), sub_totals, 1)
+    add_usage(usage, sub_totals)
+    return usage, {"calls": calls, "untracked": untracked, "usage": sub_totals}
+
+
+def apply_subagents(row, subagents):
+    """Adds the subagent fields to an analytics row. Rows from segments
+    with no Agent calls are unchanged."""
+    if not subagents:
+        return row
+    row["subagent_calls"] = subagents["calls"]
+    row["subagent_usage"] = subagents["usage"]
+    if subagents["untracked"]:
+        row["subagent_tokens"] = "untracked"
+        row["subagent_untracked_calls"] = subagents["untracked"]
+    else:
+        row["subagent_tokens"] = "included"
+    return row

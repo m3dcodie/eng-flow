@@ -91,6 +91,13 @@ project, so a long interview stage isn't continued from a lossy summary. It prin
 in projects without an `eng-flow/` folder. Set `ENG_FLOW_NO_HOOKS=1` to turn it off. See
 `PROCESS.md`, "Session hook".
 
+It ships four subagents under `agents/`, which the skills call by name for their independent
+passes: `eng-flow-adversarial-reviewer` and `eng-flow-security-reviewer` (code review),
+`eng-flow-doc-reviewer` (architecture and domain-model review) and `eng-flow-repro-test-writer`
+(bug-fix tests in implement). The three reviewers have no Write or Edit tool; the test writer can
+write new files but not edit existing ones. They show up in the Agent tool as `eng-flow:<name>`.
+See `PROCESS.md`, "Plugin agents".
+
 **Local / development** (no push required, edits take effect immediately):
 
 ```bash
@@ -114,6 +121,11 @@ PROCESS.md                       # the playbook: routing + phase gate
   marketplace.json               # marketplace listing, installed via /plugin marketplace add
 hooks/
   hooks.json                     # SessionStart (compact|resume) — in-progress work reminder
+agents/                          # tool-restricted subagents the skills call by name
+  eng-flow-adversarial-reviewer.md  # Stage 6 — blind diff review (read-only)
+  eng-flow-security-reviewer.md     # Stage 6 — security audit of the diff (read-only)
+  eng-flow-doc-reviewer.md          # Stages 2 and 3.5 — blind doc review (read-only)
+  eng-flow-repro-test-writer.md     # Stage 5 — bug reproduction test (Write, no Edit)
 .claude/skills/
   eng-flow-mvp/                  # MVP mode — one-pager, checklist, auto-implement loop, ship
   eng-flow-browse/               # utility — general-purpose visual verification (Playwright MCP)

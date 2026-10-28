@@ -93,9 +93,11 @@ As the last action of this step, save step 2 (`"name": "Cognitive lenses"`) with
 
 Steps 1-2 ran in this conversation — often the same one that just wrote `architecture.md` in Stage 3. That's a self-review risk: the reasoning that produced a decision is the reasoning most likely to rubber-stamp it. Counter it with one blind pass.
 
-Spawn a single `Agent` call (foreground — its output feeds Step 4, so wait for it), general-purpose, with a prompt that gives it **only the file paths, not this conversation's context or Steps 1-2's findings**:
+Spawn a single `Agent` call (foreground — its output feeds Step 4, so wait for it) with `subagent_type: "eng-flow:eng-flow-doc-reviewer"` — a read-only plugin agent (Read, Grep, Glob only) that carries the review criteria. Give it **only the run-specific inputs, not this conversation's context or Steps 1-2's findings**:
 
-> "Read `eng-flow/specs/<dated-slug>/spec.md`, `domain-model.md`, and `architecture.md`. You are an independent senior engineer reviewing this architecture — you have not seen any prior discussion of it and have no stake in the decisions. Evaluate: (1) component boundaries and coupling, (2) data flow bottlenecks and scaling, (3) security architecture, (4) failure modes per integration point, (5) hidden or accidental complexity, (6) whether the ADRs' 'alternatives considered' actually hold up. For each finding: what's wrong, severity, the `architecture.md` section it reacts to, and a fix."
+> "Review: architecture. Files: `eng-flow/specs/<dated-slug>/spec.md`, `eng-flow/specs/<dated-slug>/domain-model.md`, `eng-flow/specs/<dated-slug>/architecture.md`."
+
+**Fallback:** if `eng-flow:eng-flow-doc-reviewer` isn't in the Agent tool's list (the plugin agents didn't load — e.g. the skills are running from a checkout, not an installed plugin), read `${CLAUDE_PLUGIN_ROOT}/agents/eng-flow-doc-reviewer.md` (`agents/eng-flow-doc-reviewer.md` in an eng-flow checkout), and send its body below the frontmatter, followed by the same inputs, as the prompt of a `general-purpose` `Agent` call. Log it: `risk silent_decide ai_default "agent eng-flow-doc-reviewer unavailable: general-purpose fallback"`. Never skip the review because the agent is missing.
 
 Adapted from gstack's `autoplan` dual-voice eng review (attribution: `docs/DECISIONS.md`) — without its Codex cross-check or consensus-table mechanics, since eng-flow has no second external reviewer and Step 4 already gets each finding an explicit human accept/change/reject.
 

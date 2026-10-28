@@ -270,6 +270,23 @@ When a draft is listed, the block ends with an instruction to re-read it and `li
 
 Design and rationale: `docs/improvements/session-start-hook.md`.
 
+### Plugin agents (cross-cutting, not a sequential stage)
+
+Four stages hand an independent pass to a subagent. Each uses a plugin agent from `agents/`, called by `subagent_type` (`eng-flow:<name>`). The agent file holds the stable instructions and the tool list; the skill passes only the run-specific inputs (file paths, diff scope, security-policy path), so the agent never sees the conversation or earlier findings.
+
+| Agent | Used by | Tools |
+|---|---|---|
+| `eng-flow-adversarial-reviewer` | Stage 6, Step 3.5 | Read, Grep, Glob, Bash (read-only git) |
+| `eng-flow-security-reviewer` | Stage 6, Step 3.5 | Read, Grep, Glob, Bash (read-only git) |
+| `eng-flow-doc-reviewer` | Stage 3.5, Step 3; Stage 2, Step 7 | Read, Grep, Glob |
+| `eng-flow-repro-test-writer` | Stage 5, Step 2 (bug-fix tasks) | Read, Grep, Glob, Write, Bash |
+
+- **No reviewer can write.** None of the three reviewers has Write or Edit. The test writer can create a test file but has no Edit. Bash can't be narrowed to single commands in an agent's tool list, so the read-only-git limit on the two code reviewers is stated in their instructions, not enforced.
+- **Model.** Each file sets `model: inherit`, so an agent runs on the caller's model. Stage 2's `--review-model` is still passed on the call and still wins.
+- **Fallback.** If an agent isn't listed (the plugin agents didn't load, e.g. the skills are running from a checkout), the step sends the agent file's body plus the same inputs to `general-purpose`, logs `risk silent_decide ai_default "agent <name> unavailable: general-purpose fallback"`, and carries on. The review is never skipped. The fallback loses the tool restriction, so each agent's instructions also say not to modify files.
+
+Rationale and what wasn't adopted: `docs/DECISIONS.md`, "Plugin agents".
+
 ### Stage 10 — Analytics
 
 Read-only, on-demand. Skill: `.claude/skills/eng-flow-analytics/SKILL.md`.

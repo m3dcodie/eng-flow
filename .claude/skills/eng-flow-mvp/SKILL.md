@@ -107,12 +107,22 @@ This is the actual gap versus Stage 5 (`eng-flow-implement`), which deliberately
 
 **Before looping**, check `git remote -v`. If a remote exists, ask once whether to push each completed task's commit to remote as it lands, or keep commits local-only until Step 5's ship step — recommend pushing (protects in-progress work against a local machine or session failure) but let the user decide. If no remote is configured, skip the question, commit locally only, and log it: `risk silent_decide ai_default "no remote configured: committing locally only"`.
 
+**One subagent per item (default).** Each item's implement → test → verify → commit runs in a foreground `Agent` with `subagent_type: "eng-flow:eng-flow-mvp-item-builder"`, so the per-item code reading and test output don't build up in this conversation. Items run one after another, never in parallel. This conversation keeps the push decision, the hard-stop checks, checking items off, and the Decision Ledger. If `$ARGUMENTS` contains `--inline`, skip the subagents and do items 1–4 below directly here, as before. Log the choice once, before the first item: `risk silent_decide <ai_default|user_confirmed> "implement loop: <subagent per item | inline (--inline)>"`. Rationale: `docs/DECISIONS.md`, "Subagent context offload".
+
+**Fallback:** if `eng-flow:eng-flow-mvp-item-builder` isn't in the Agent tool's list (the plugin agents didn't load — e.g. the skills are running from a checkout, not an installed plugin), read `${CLAUDE_PLUGIN_ROOT}/agents/eng-flow-mvp-item-builder.md` (`agents/eng-flow-mvp-item-builder.md` in an eng-flow checkout), and send its body below the frontmatter, followed by the same inputs, as the prompt of a `general-purpose` `Agent` call. Log it: `risk silent_decide ai_default "agent eng-flow-mvp-item-builder unavailable: general-purpose fallback"`.
+
 **Per checklist item:**
+0. *Before dispatching*, read the item against the "Always stop and ask" list below. If it's plainly high-risk (auth/permissions, destructive migrations, payments, deletions, deploys, secrets) or needs a decision the one-pager doesn't cover, stop and ask here, before any subagent runs.
 1. Implement the smallest complete vertical slice for that item.
 2. Write a test if the repo has a test framework and the item implies observable behavior (not mandatory TDD ceremony — if there's no test setup, say so once and proceed, don't ask per item).
 3. Run the existing test suite (regression check) and build/lint if the stack has them.
-4. Commit — one item, one commit, descriptive message. Push if enabled above.
-5. Check the item off in `checklist.md`.
+4. Commit — one item, one commit, descriptive message.
+5. Push if enabled above.
+6. Check the item off in `checklist.md`.
+
+In subagent mode, items 1–4 are the subagent. Pass it the checklist line (title, acceptance, files, size), the path to `one-pager.md`, the feature branch, and the test/build/lint commands once known. It never pushes, never edits `checklist.md`, and never asks the user — it returns `STATUS: done` with its commit, or `STATUS: stopped` with the hard-stop condition and its changes left uncommitted. Then, here:
+- **`done`** — check that exactly one new commit landed on the feature branch (`git log --oneline <sha-before>..HEAD`), that every file in its **Changed** list is in that commit (`git show --stat HEAD`), and that no tracked file other than `checklist.md` has uncommitted changes (`git status --porcelain --untracked-files=no`). Untracked build artefacts and eng-flow's own `analytics.jsonl` / `.analytics-tmp/` don't count. If all three hold, do items 5 and 6. If not (no commit, several commits, a changed file left out of the commit, or stray changes to tracked files), treat it as a hard stop.
+- **`stopped`** — handle it as the matching "Always stop and ask" condition below: show the user what the subagent found and what's uncommitted, ask, and log it. Once resolved, either finish the item inline or send a fresh subagent for it with the user's answer added to the inputs.
 
 **Never stop for:** moving to the next checklist item once the current one's tests/build pass, committing a completed item, pushing the feature branch (if enabled), minor lint/format auto-fixes.
 
@@ -124,7 +134,7 @@ This is the actual gap versus Stage 5 (`eng-flow-implement`), which deliberately
 
 Log each hard stop: `risk must_escalate user_confirmed "<which condition>: <resolution>"`.
 
-If interrupted mid-loop (crash, closed terminal), re-invoking this skill resumes at Step 0's resume check and picks up at the first unchecked item — no separate crash-recovery file needed.
+If interrupted mid-loop (crash, closed terminal), re-invoking this skill resumes at Step 0's resume check and picks up at the first unchecked item — no separate crash-recovery file needed. Subagent mode doesn't change this: the subagent commits before this conversation checks the item off, so an interruption between the two leaves a committed but unchecked item. On resume, if the last commit's subject matches the first unchecked item, confirm with the user and check it off rather than re-implementing it.
 
 ---
 

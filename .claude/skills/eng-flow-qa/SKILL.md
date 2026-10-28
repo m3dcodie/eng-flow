@@ -8,6 +8,7 @@ allowed-tools:
   - Write
   - Bash
   - AskUserQuestion
+  - Agent
 triggers:
   - qa this
   - qa test this
@@ -29,6 +30,10 @@ At the start of every step below (including Step 0), run `python3 "${CLAUDE_PLUG
 
 Check `$ARGUMENTS` for a `--guide` token; if present, every decision point below gets an explicit `AskUserQuestion` instead of a silent default, and Step 5's report adds a "Decisions I made / decisions you made" summary. Log every decision point via `python3 "${CLAUDE_PLUGIN_ROOT}/.claude/skills/lib/bin/eng-flow-decision-log" eng-flow-qa "<step>" <reason> <mode> <owner> "<description>" "<story-slug>"`. See `eng-flow-spec`'s Decision Ledger section for the taxonomy and why. Rollup/analysis: `eng-flow-retro` Step 1 (Stage 9).
 
+## Exploration in a subagent
+
+By default, Step 3's browser work runs in foreground subagents (`eng-flow:eng-flow-qa-explorer`), not in this conversation, so Playwright snapshots and screenshots don't fill the main context. Only each subagent's structured findings list comes back. This conversation keeps the mode, orientation, findings ledger, report, and every question to the user. If `$ARGUMENTS` contains `--inline`, skip the subagents and run Step 3 directly here, as before. Guided-manual mode always runs inline. Rationale: `docs/DECISIONS.md`, "Subagent context offload".
+
 ## Findings Ledger
 
 Step 5 logs the severity-tagged issue counts it already computed for `qa-report.md` to project-level `eng-flow/findings.jsonl`, via `eng-flow-findings-log` — see Step 5 for the exact call. Feeds `eng-flow-analytics`' (Stage 10) bug-rate rollup; not something this skill reads back itself.
@@ -40,6 +45,8 @@ Prefer `eng-flow-browse` (bundled with this plugin — its `mcpServers.playwrigh
 If `eng-flow-browse` can't reach a working browser in this session (MCP failed to start, sandboxed environment, etc.), fall back to **guided-manual mode**: present the per-page checklist (Step 3) to the user, ask them to walk through it in their own browser and report back what they see (descriptions or pasted screenshots) — don't skip QA just because automation is unavailable this run, degrade the mechanism, not the coverage.
 
 Log it: `risk silent_decide ai_default "browser automation: <eng-flow-browse | guided-manual fallback>"`.
+
+When automation is available, also log how Step 3 will run: `risk silent_decide <ai_default|user_confirmed> "exploration: <subagent | inline (--inline)>"`.
 
 ---
 
@@ -63,6 +70,14 @@ Log it: `risk open_question user_confirmed "target URL: <url>"` when asked.
 
 ## Step 3 — Explore (per-page checklist)
 
+**Subagent mode (default with browser automation).** Split the pages in scope into batches — one page each for diff-aware and full mode, or a few small, closely related pages together; quick mode can be a single batch. For each batch, in turn, spawn a foreground `Agent` with `subagent_type: "eng-flow:eng-flow-qa-explorer"`. Pass it: the base URL, the batch's routes, the mode, server-rendered vs. SPA (from Step 2), whether mobile viewport is in scope, and `eng-flow/backlog/stories/<story-slug>/qa-evidence/` as the screenshot directory. Create that directory first (`mkdir -p`): the explorer has no Bash or Write, and the screenshot tool won't create folders. It runs the checklist below and returns findings, pages covered, and a **Needs the caller** list. After each return, record its findings into this run's findings ledger right away (Step 4) before the next batch. Batches run one after another, never in parallel — they share one browser.
+
+Anything under **Needs the caller** (a login, test data, mutating JS, a form with outside effects, an out-of-scope URL) is decided here, not by the subagent: ask the user via `AskUserQuestion`, log it with its usual reason/mode (mutating JS stays `risk must_escalate user_confirmed`), then send a follow-up batch with the answer if the check is still worth running. A page the subagent marks "partly checked" stays partly checked in the Summary unless a follow-up batch covers it.
+
+**Fallback:** if `eng-flow:eng-flow-qa-explorer` isn't in the Agent tool's list (the plugin agents didn't load — e.g. the skills are running from a checkout, not an installed plugin), read `${CLAUDE_PLUGIN_ROOT}/agents/eng-flow-qa-explorer.md` (`agents/eng-flow-qa-explorer.md` in an eng-flow checkout), and send its body below the frontmatter, followed by the same inputs, as the prompt of a `general-purpose` `Agent` call. Log it: `risk silent_decide ai_default "agent eng-flow-qa-explorer unavailable: general-purpose fallback"`. If the Playwright tools turn out to be unreachable from the subagent, run Step 3 inline instead and log `risk silent_decide ai_default "exploration: inline (subagent had no browser tools)"`.
+
+**Inline mode** (`--inline`, or the fallback just above) and **guided-manual mode** run the checklist below in this conversation.
+
 For each page in scope:
 - **Visual scan** — obvious layout issues from a screenshot, if the tool supports one.
 - **Interactive elements** — do buttons, links, and controls actually do what they claim?
@@ -80,7 +95,7 @@ Quick mode: only loads-without-error + console errors + visibly broken links, sk
 
 ## Step 4 — Document
 
-Document each issue **immediately when found**, not batched at the end. For interactive bugs: screenshot (or description, in guided-manual mode) before the action, the action taken, the result, and repro steps referencing them.
+Document each issue **immediately when found**, not batched at the end. In subagent mode, "when found" means as soon as each batch's subagent returns, before the next batch starts; its Repro and Evidence fields map straight onto the report's. For interactive bugs: screenshot (or description, in guided-manual mode) before the action, the action taken, the result, and repro steps referencing them.
 
 Tag severity (reuses `eng-flow-code-review`'s vocabulary for consistency):
 - **Critical** — broken core flow, data loss, crash.

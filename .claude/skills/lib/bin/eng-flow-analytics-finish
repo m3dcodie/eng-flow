@@ -8,6 +8,8 @@ deletes the marker -- a clean finish, not a crash recovery.
 
 Usage: eng-flow-analytics-finish <skill> [story-slug]
 """
+import importlib.machinery
+import importlib.util
 import json
 import os
 import sys
@@ -18,42 +20,17 @@ def iso(ts):
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(ts))
 
 
-def transcript_path(session_id):
-    if not session_id:
-        return None
-    sanitized = os.getcwd().replace("/", "-")
-    return os.path.join(
-        os.path.expanduser("~"), ".claude", "projects", sanitized, f"{session_id}.jsonl"
-    )
-
-
-def extract_usage(path, start_line, end_line):
-    totals = {
-        "input_tokens": 0,
-        "output_tokens": 0,
-        "cache_creation_input_tokens": 0,
-        "cache_read_input_tokens": 0,
-    }
-    if not path or not os.path.isfile(path):
-        return None
+def load_usage():
+    """eng-flow-usage, or None if it can't be loaded (rows go time-only)."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "eng-flow-usage")
     try:
-        with open(path, "r", errors="ignore") as f:
-            lines = f.readlines()
-    except OSError:
+        loader = importlib.machinery.SourceFileLoader("eng_flow_usage", path)
+        spec = importlib.util.spec_from_loader("eng_flow_usage", loader)
+        mod = importlib.util.module_from_spec(spec)
+        loader.exec_module(mod)
+        return mod
+    except Exception:  # analytics must never block the calling skill
         return None
-    for line in lines[start_line:end_line]:
-        try:
-            entry = json.loads(line)
-        except (json.JSONDecodeError, ValueError):
-            continue
-        if entry.get("type") != "assistant":
-            continue
-        usage = (entry.get("message") or {}).get("usage")
-        if not usage:
-            continue
-        for k in totals:
-            totals[k] += usage.get(k, 0) or 0
-    return totals
 
 
 def main():
@@ -76,18 +53,17 @@ def main():
     except (OSError, json.JSONDecodeError):
         return 0
 
+    usage_lib = load_usage()
     session = os.environ.get("CLAUDE_CODE_SESSION_ID")
-    tpath = transcript_path(session)
+    tpath = usage_lib.transcript_path(session) if usage_lib else None
     now_ts = time.time()
-    now_line = 0
-    if tpath and os.path.isfile(tpath):
-        try:
-            with open(tpath, "r", errors="ignore") as f:
-                now_line = sum(1 for _ in f)
-        except OSError:
-            now_line = 0
+    now_line = usage_lib.line_count(tpath) if usage_lib else 0
 
-    usage = extract_usage(marker.get("transcript"), marker.get("line", 0), now_line)
+    usage, subagents = (
+        usage_lib.segment_usage(marker.get("transcript"), marker.get("line", 0), now_line)
+        if usage_lib
+        else (None, None)
+    )
     row = {
         "run_id": marker.get("run_id"),
         "skill": skill,
@@ -99,6 +75,8 @@ def main():
         "usage": usage,
         "outcome": "completed",
     }
+    if usage_lib:
+        usage_lib.apply_subagents(row, subagents)
     try:
         os.makedirs(os.path.dirname(log_path), exist_ok=True)
         with open(log_path, "a") as f:

@@ -24,6 +24,11 @@ And, if eng-flow/findings.jsonl exists (written by eng-flow-findings-log
 at the end of eng-flow-code-review/eng-flow-qa): a bug-rate rollup --
 Critical/Required/Nit finding counts per story and project-wide.
 
+Rows from steps that spawned subagents carry subagent_calls, and
+subagent_tokens "included" (their usage is in the row's totals) or
+"untracked" (some calls' usage couldn't be found, so the totals
+undercount). Every total line shows that flag rather than hiding it.
+
 Usage: eng-flow-analytics-report [story-slug]
 """
 import json
@@ -62,6 +67,17 @@ def add_usage(totals, usage):
         return
     for k in totals:
         totals[k] += usage.get(k, 0) or 0
+
+
+def subagent_flag(data):
+    if data["sub_untracked"]:
+        return (
+            f" [subagents: {data['sub_untracked']} of {data['sub_calls']} "
+            "calls untracked -- total undercounts]"
+        )
+    if data["sub_calls"]:
+        return f" [subagents: {data['sub_calls']} calls included]"
+    return ""
 
 
 def fmt_duration(seconds):
@@ -133,6 +149,7 @@ def main():
     by_story = {}
     by_skill = {}
     recovered_count = 0
+    untracked_rows = 0
     # story -> skill -> {"first_start": dt, "last_end": dt, "run_ids": set()}
     story_skill_spans = {}
 
@@ -143,16 +160,24 @@ def main():
         usage = r.get("usage")
         if r.get("outcome") == "recovered":
             recovered_count += 1
+        sub_calls = r.get("subagent_calls", 0) or 0
+        sub_untracked = r.get("subagent_untracked_calls", 0) or 0
+        if sub_untracked:
+            untracked_rows += 1
 
-        s = by_story.setdefault(story, {"duration_s": 0, "usage": empty_usage(), "steps": 0})
+        s = by_story.setdefault(story, {"duration_s": 0, "usage": empty_usage(), "steps": 0, "sub_calls": 0, "sub_untracked": 0})
         s["duration_s"] += dur
         s["steps"] += 1
         add_usage(s["usage"], usage)
+        s["sub_calls"] += sub_calls
+        s["sub_untracked"] += sub_untracked
 
-        k = by_skill.setdefault(skill, {"duration_s": 0, "usage": empty_usage(), "steps": 0})
+        k = by_skill.setdefault(skill, {"duration_s": 0, "usage": empty_usage(), "steps": 0, "sub_calls": 0, "sub_untracked": 0})
         k["duration_s"] += dur
         k["steps"] += 1
         add_usage(k["usage"], usage)
+        k["sub_calls"] += sub_calls
+        k["sub_untracked"] += sub_untracked
 
         start, end = parse_iso(r.get("ts_start")), parse_iso(r.get("ts_end"))
         if start and end:
@@ -173,7 +198,7 @@ def main():
             f"in={fmt_tokens(u['input_tokens'])} out={fmt_tokens(u['output_tokens'])} "
             f"cache-w={fmt_tokens(u['cache_creation_input_tokens'])} "
             f"cache-r={fmt_tokens(u['cache_read_input_tokens'])} "
-            f"(total={fmt_tokens(total_tokens)})"
+            f"(total={fmt_tokens(total_tokens)}){subagent_flag(data)}"
         )
 
     print("=== By story ===")
@@ -243,6 +268,14 @@ def main():
             f"Note: {recovered_count} segment(s) were recovered from an interrupted "
             "run (killed terminal / restart) rather than a clean finish -- "
             "included in the totals above, flagged here for data-quality awareness."
+        )
+
+    if untracked_rows:
+        print()
+        print(
+            f"Note: {untracked_rows} segment(s) spawned subagents whose token usage "
+            "couldn't be found (subagent_tokens: untracked) -- the token totals "
+            "above undercount those steps. Time is unaffected."
         )
 
     return 0

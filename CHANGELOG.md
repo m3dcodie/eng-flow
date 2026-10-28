@@ -4,6 +4,8 @@ All notable changes to eng-flow are documented here. Format loosely follows [Kee
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-10-29
+
 ### Added
 
 - Four plugin agents under `agents/`, picked up by Claude Code without a `plugin.json` entry and listed as `eng-flow:<name>`. `eng-flow-adversarial-reviewer` and `eng-flow-security-reviewer` (code review Step 3.5) and `eng-flow-doc-reviewer` (eng review Step 3, domain model Step 7) get Read, Grep and Glob, plus Bash for git on the two code reviewers; none has Write or Edit. `eng-flow-repro-test-writer` (implement Step 2, bug-fix tasks) can write a new test file but has no Edit. Before, all four passes ran on `general-purpose`, which could edit the code or docs it was meant to review blind. The review prompts moved from the skills into the agent files unchanged; the skills now pass only file paths, diff scope and the security-policy path. Each file sets `model: inherit`; `--review-model` still overrides on the domain-model call. If an agent isn't available, the step falls back to `general-purpose` with the agent file's body as the prompt and logs the fallback. Spec: `eng-flow/specs/2026-10-29-plugin-reviewer-agents/spec.md`.
